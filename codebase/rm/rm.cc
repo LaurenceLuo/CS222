@@ -193,13 +193,29 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const vector<Attribut
 
 RC RelationManager::createTable(const string &tableName, const vector<Attribute> &attrs)
 {
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	int tableSize;
+	int colSize;
+	int pageNum;
+	rbf_manager->createFile(tableName);
+	// Insert tuple to table "Tables"
+	rbf_manager->openFile("Tables", fileHandle);
+	pageNum = rbf_manager->getFreePage(fileHandle, tableSize);
+	insertTableTuple(fileHandle, tableName, pageNum);
+	rbf_manager->closeFile(fileHandle);
 
+	// Insert tuple to table "Columns"
+	rbf_manager->openFile("Columns", fileHandle);
+	pageNum = rbf_manager->getFreePage(fileHandle, colSize);
+	insertColTuple(fileHandle, attrs, pageNum);
+	rbf_manager->closeFile(fileHandle);
     return 0;
 }
 
 RC RelationManager::deleteTable(const string &tableName)
 {
-
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
     return 0;
 }
 
