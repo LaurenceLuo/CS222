@@ -155,6 +155,7 @@ IMPORTANT, PLEASE READ: All methods below this comment (other than the construct
       RBFM_ScanIterator &rbfm_ScanIterator);
 
 public:
+  int getFreePage(FileHandle &fileHandle, int formattedRecordSize);
 
 protected:
   RecordBasedFileManager();
@@ -166,7 +167,6 @@ private:
     int getRecordSize(const vector<Attribute> &recordDescriptor, const void *data);//including nullIndicator
     int getNullIndicatorSize(const vector<Attribute> &recordDescriptor);
     int formatRecord(const vector<Attribute> &recordDescriptor, const void *data, char * &formattedRecord);//return formatted record size
-    int getFreePage(FileHandle &fileHandle, int formattedRecordSize);
     RC makeDirectoryPage(FileHandle &fileHandle, int &currDir, int &nextDir);
     RC updateDirectoryPage(FileHandle &fileHandle, const RID &rid, short spaceToAdd);
 
