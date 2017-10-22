@@ -91,8 +91,10 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         dirDescription.slotCount=1;
         dirDescription.freeSpacePointer=slot.length;
         memcpy(page+PAGE_SIZE-sizeof(DirDescription),&dirDescription,sizeof(DirDescription));
-        fileHandle.appendPage(page);
-        
+        if(fileHandle.appendPage(page)!=0){
+            cout<<"appendPage from insertRecord fail!"<<endl;
+            return -1;
+        }
         //cout<<"slot.lengthWrite: "<<slot.length<<" slot.slotNum: "<<rid.slotNum<<endl;
     }
     else{
@@ -103,18 +105,36 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         DirDescription dirDescription;
         //cout<<"Working"<<endl;
         memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
+        
         Slot slot;
-        slot.offset=dirDescription.freeSpacePointer;
         slot.length=formattedRecordSize;
-        memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(dirDescription.slotCount+1),&slot,sizeof(Slot));
+        slot.offset=dirDescription.freeSpacePointer;
+        int slotIndex=0;
+        Slot* slots=new Slot[dirDescription.slotCount];
+        for(int i=0;i<dirDescription.slotCount;i++){
+            memcpy(&slots[i],page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(i+1),sizeof(Slot));
+            if(slots[i].length==DELETE_MARK){
+                slotIndex=i;
+                slot.offset=slots[i].offset;
+                break;
+            }
+            slotIndex++;
+        }
+        
+        //slot.offset=dirDescription.freeSpacePointer;
+        memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(slotIndex+1),&slot,sizeof(Slot));
         memcpy(page+dirDescription.freeSpacePointer, formattedRecord, formattedRecordSize);
+
         
         //update DirDescription
-        rid.slotNum=dirDescription.slotCount;
+        rid.slotNum=slotIndex;
         dirDescription.slotCount++;
         dirDescription.freeSpacePointer+=formattedRecordSize;
         memcpy(page+PAGE_SIZE-sizeof(DirDescription),&dirDescription,sizeof(DirDescription));
-        fileHandle.writePage(rid.pageNum,page);
+        if(fileHandle.writePage(rid.pageNum,page)!=0){
+            cout<<"writePage from insertRecord fail!"<<endl;
+            return -1;
+        }
         //cout<<"pageNumWrite: "<<rid.pageNum<<" slotNumWrite: "<<rid.slotNum<<endl;
     }
     //cout<<"rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
@@ -146,7 +166,7 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
         cout<<"read TOMBSTONE encountered!"<<endl;
         RID nextRid;
         memcpy(&nextRid,page+slot.offset,sizeof(RID));
-        cout<<"New pageNum: "<<nextRid.pageNum<<", slotNum: "<<nextRid.slotNum<<endl;
+        //cout<<"New pageNum: "<<nextRid.pageNum<<", slotNum: "<<nextRid.slotNum<<endl;
         return readRecord(fileHandle,recordDescriptor,nextRid,data);
     }
     int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
@@ -333,14 +353,14 @@ int RecordBasedFileManager::getFreePage(FileHandle &fileHandle, int formattedRec
             makeDirectoryPage(fileHandle,dirIndex,nextDir);
             if(fileHandle.readPage(dirIndex*DIR_NUM,page)!=0){
                 cout<<"readPage from getFreePage fail!"<<endl;
-                cout<<"dirIndex*DIR_NUM: "<<dirIndex*DIR_NUM<<" fileHandle.getNumberOfPages(): "<<fileHandle.getNumberOfPages()<<" formattedRecordSize: "<<formattedRecordSize<<endl;
+                //cout<<"dirIndex*DIR_NUM: "<<dirIndex*DIR_NUM<<" fileHandle.getNumberOfPages(): "<<fileHandle.getNumberOfPages()<<" formattedRecordSize: "<<formattedRecordSize<<endl;
                 return -1;
             }
         }
         else{
             if(fileHandle.readPage(dirIndex*DIR_NUM,page)!=0){
                 cout<<"readPage from getFreePage fail!"<<endl;
-                cout<<"dirIndex*DIR_NUM: "<<dirIndex*DIR_NUM<<" fileHandle.getNumberOfPages(): "<<fileHandle.getNumberOfPages()<<" formattedRecordSize: "<<formattedRecordSize<<endl;
+                //cout<<"dirIndex*DIR_NUM: "<<dirIndex*DIR_NUM<<" fileHandle.getNumberOfPages(): "<<fileHandle.getNumberOfPages()<<" formattedRecordSize: "<<formattedRecordSize<<endl;
                 return -1;
             }
 
@@ -567,7 +587,24 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
         sizeDiff*=-1;
         if(PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*dirDescription.slotCount>sizeDiff){//enough space for larger record
             //cout<<"CASE3!!!!!"<<endl;
+            
+            int lengthToShift=0;//shift forward
+            for(int i=0;i<dirDescription.slotCount;i++){
+                if(slots[i].offset>slots[rid.slotNum].offset){
+                    slots[i].offset+=sizeDiff;
+                    memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(i+1),&slots[i],sizeof(Slot));
+                    lengthToShift+=slots[i].length;
+                }
+            }
+            
+            char* shiftContent=new char[lengthToShift];
+            memcpy(shiftContent,page+slots[rid.slotNum].offset+slots[rid.slotNum].length,lengthToShift);
+            memcpy(page+slots[rid.slotNum].offset+newRecordSize,shiftContent,lengthToShift);
+            delete []shiftContent;
+
+            //cout<<"old freeSpacePointer: "<<dirDescription.freeSpacePointer<<" sizeDiff: "<<sizeDiff<<endl;
             dirDescription.freeSpacePointer-=sizeDiff;
+            //cout<<"dirDescription.freeSpacePointer: "<<dirDescription.freeSpacePointer<<" sizeDiff: "<<sizeDiff<<endl;
             memcpy(page+PAGE_SIZE-sizeof(DirDescription),&dirDescription,sizeof(DirDescription));
             
             memcpy(page+slots[rid.slotNum].offset,formattedNewRecord,newRecordSize);
@@ -642,3 +679,10 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
     return 0;
 }
 
+RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, const string &attributeName, void *data){
+    for(int i=0;i<recordDescriptor.size();i++){
+        
+    }
+        
+    return 0;
+}
