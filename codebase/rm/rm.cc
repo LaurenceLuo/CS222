@@ -112,6 +112,9 @@ RC RelationManager::createCatalog()
 
 RC RelationManager::deleteCatalog()
 {
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	rbf_manager->destroyFile("Tables");
+	rbf_manager->destroyFile("Columns");
     return 0;
 }
 
