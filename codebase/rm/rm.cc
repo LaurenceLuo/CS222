@@ -21,6 +21,7 @@ RC RelationManager::createCatalog()
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
 	DirDescription dirDescription;
+	RC rc;
 	dirDescription.slotCount = 0;
 	dirDescription.freeSpacePointer = 0;
 	int pageNum = 1;
@@ -49,7 +50,7 @@ RC RelationManager::createCatalog()
 
 	// Insert the tuple of "Tables" to "Tables"
 	rbf_manager->openFile(tableName, fileHandle);
-	RC rc = insertTableTuple(fileHandle, tableName, pageNum);
+	rc = insertTableTuple(fileHandle, tableName, pageNum);
 	rbf_manager->closeFile(fileHandle);
 
 	// Insert attrs of "Tables" to "Columns"
@@ -71,8 +72,12 @@ RC RelationManager::createCatalog()
 	tableAttrs.push_back(attr);
 
 	rbf_manager->openFile(colName, fileHandle);
-	rc = insertColTuple(fileHandle, tableAttrs, pageNum);
+	for(int pos=1; pos<=tableAttrs.size(); pos++){
+		rc = insertColTuple(fileHandle, tableAttrs[pos-1], pageNum, pos);
+	}
 	rbf_manager->closeFile(fileHandle);
+
+	table_id++;
 
 	// Insert the tuple of "Columns" to "Tables"
 	rbf_manager->openFile(tableName, fileHandle);
@@ -102,8 +107,12 @@ RC RelationManager::createCatalog()
 	colAttrs.push_back(attr);
 
 	rbf_manager->openFile(colName, fileHandle);
-	rc = insertColTuple(fileHandle, colAttrs, pageNum);
+	for(int pos=1; pos<=colAttrs.size(); pos++){
+		rc = insertColTuple(fileHandle, colAttrs[pos-1], pageNum, pos);
+	}
 	rbf_manager->closeFile(fileHandle);
+
+	table_id++;
 
     return 0;
 }
@@ -125,8 +134,10 @@ bool RelationManager::tableExist(const string &tableName){
 
 RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &tableName, int pageNum){
 	char* page = new char[PAGE_SIZE];
+	//cout << "insertTableTuple getNumberOfPages: " << fileHandle.getNumberOfPages() << endl;
     if(fileHandle.readPage(pageNum,page)!=0){
-        cout<<"readPage from insertRecord fail!"<<endl;
+    		cout << "tableName: " << tableName << endl;
+        cout << "readPage from insertTableTuple fail!" << endl;
         return -1;
     }
 	DirDescription dirDescription;
@@ -149,10 +160,10 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 	return 0;
 }
 
-RC RelationManager::insertColTuple(FileHandle &fileHandle, const vector<Attribute> &attrs, int pageNum){
+RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos){
 	char* page = new char[PAGE_SIZE];
     if(fileHandle.readPage(pageNum,page)!=0){
-        cout<<"readPage from insertRecord fail!"<<endl;
+        cout<<"readPage from insertColTuple fail!"<<endl;
         return -1;
     }
 	DirDescription dirDescription;
@@ -160,24 +171,19 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const vector<Attribut
 	short colSize = 0;
 	short varcharLength;
 
-	int pos = 1;
-	for(vector<Attribute>::const_iterator i=attrs.begin(); i!=attrs.end(); i++){
-		memcpy(page+dirDescription.freeSpacePointer+colSize, &table_id, sizeof(int));
-		colSize += sizeof(int);
-		varcharLength = i->name.length();
-		memcpy(page+dirDescription.freeSpacePointer+colSize, &varcharLength, sizeof(short));
-		colSize += sizeof(short);
-		memcpy(page+dirDescription.freeSpacePointer+colSize, &i->name, varcharLength);
-		colSize += varcharLength;
-		memcpy(page+dirDescription.freeSpacePointer+colSize, &i->type, sizeof(int));
-		colSize += sizeof(int);
-		memcpy(page+dirDescription.freeSpacePointer+colSize, &i->length, sizeof(int));
-		colSize += sizeof(int);
-		memcpy(page+dirDescription.freeSpacePointer+colSize, &pos, sizeof(int));
-		colSize += sizeof(int);
-		pos++;
-	}
-	table_id++;
+	memcpy(page+dirDescription.freeSpacePointer+colSize, &table_id, sizeof(int));
+	colSize += sizeof(int);
+	varcharLength = attr.name.length();
+	memcpy(page+dirDescription.freeSpacePointer+colSize, &varcharLength, sizeof(short));
+	colSize += sizeof(short);
+	memcpy(page+dirDescription.freeSpacePointer+colSize, &attr.name, varcharLength);
+	colSize += varcharLength;
+	memcpy(page+dirDescription.freeSpacePointer+colSize, &attr.type, sizeof(int));
+	colSize += sizeof(int);
+	memcpy(page+dirDescription.freeSpacePointer+colSize, &attr.length, sizeof(int));
+	colSize += sizeof(int);
+	memcpy(page+dirDescription.freeSpacePointer+colSize, &pos, sizeof(int));
+	colSize += sizeof(int);
 
 	// update dirDescription
 	dirDescription.slotCount++;
@@ -193,14 +199,27 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
+	RC rc;
+	rbf_manager->createFile(tableName);
+	rbf_manager->openFile(tableName, fileHandle);
+	DirDescription dirDescription;
+	dirDescription.slotCount = 0;
+	dirDescription.freeSpacePointer = 0;
+	char *page=new char[PAGE_SIZE];
+	memcpy(page+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
+	fileHandle.appendPage(page);
+	rbf_manager->closeFile(fileHandle);
+	delete []page;
+
 	int tableSize;
 	int colSize=0;
 	int pageNum;
-	rbf_manager->createFile(tableName);
 	// Insert tuple to table "Tables"
 	rbf_manager->openFile("Tables", fileHandle);
+	//cout << "getNumberOfPages: " << fileHandle.getNumberOfPages() << endl;
 	tableSize = sizeof(int) + sizeof(short) + tableName.length()*2;
 	pageNum = rbf_manager->getFreePage(fileHandle, tableSize);
+	//cout << "pageNum: " << pageNum << endl;
 	insertTableTuple(fileHandle, tableName, pageNum);
 	rbf_manager->closeFile(fileHandle);
 
@@ -210,26 +229,75 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 		colSize = colSize + sizeof(int) + sizeof(short) + i->name.length() + sizeof(int)*3;
 	}
 	pageNum = rbf_manager->getFreePage(fileHandle, colSize);
-	insertColTuple(fileHandle, attrs, pageNum);
+	for(int pos=1; pos<=attrs.size(); pos++){
+		rc = insertColTuple(fileHandle, attrs[pos-1], pageNum, pos);
+	}
 	rbf_manager->closeFile(fileHandle);
+	table_id++;
     return 0;
 }
 
 RC RelationManager::deleteTable(const string &tableName)
 {
-	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	//RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
     return 0;
 }
 
 RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &attrs)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	// TODO: how to find which pageNum
+	// assume it's page 1 now
+	int pageNum=1;
+	rbf_manager->openFile("Tables", fileHandle);
+	char* page = new char[PAGE_SIZE];
+    if(fileHandle.readPage(pageNum,page)!=0){
+        cout<<"readPage from getAttributes fail!"<<endl;
+        return -1;
+    }
+    int offset = 0;
+    int id;
+    short varcharLength;
+    string name;
+    // Find table id by "Tables"
+    while(true){
+    		memcpy(&id, page+offset, sizeof(int));
+    		memcpy(&varcharLength, page+offset, sizeof(short));
+    		offset += sizeof(short);
+    		memcpy(&name, page+offset, varcharLength);
+    		offset += varcharLength;
+    		if(name==tableName)
+    			break;
+    		offset += varcharLength;
+    }
+    delete[] page;
+    rbf_manager->closeFile(fileHandle);
+
+    // TODO: Find attrs by "Columns"
+    rbf_manager->openFile("Columns", fileHandle);
+    char* page = new char[PAGE_SIZE];
+    if(fileHandle.readPage(pageNum,page)!=0){
+        cout<<"readPage from getAttributes fail!"<<endl;
+        return -1;
+    }
+    offset = 0;
+
+
+
+    return 0;
 }
 
 RC RelationManager::insertTuple(const string &tableName, const void *data, RID &rid)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	vector<Attribute> recordDescriptor;
+	rbf_manager->openFile(tableName, fileHandle);
+	getAttributes(tableName, recordDescriptor);
+	rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
+    return 0;
 }
 
 RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
@@ -244,12 +312,20 @@ RC RelationManager::updateTuple(const string &tableName, const void *data, const
 
 RC RelationManager::readTuple(const string &tableName, const RID &rid, void *data)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	vector<Attribute> recordDescriptor;
+	rbf_manager->openFile(tableName, fileHandle);
+	getAttributes(tableName, recordDescriptor);
+	rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
+    return 0;
 }
 
 RC RelationManager::printTuple(const vector<Attribute> &attrs, const void *data)
 {
-	return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	rbf_manager->printRecord(attrs, data);
+	return 0;
 }
 
 RC RelationManager::readAttribute(const string &tableName, const RID &rid, const string &attributeName, void *data)
