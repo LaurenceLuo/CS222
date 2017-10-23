@@ -19,7 +19,7 @@ RelationManager::~RelationManager()
 RC RelationManager::createCatalog()
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
-	FileHandle fileHandle;
+	FileHandle tableFileHandle, colFileHandle;
 	DirDescription dirDescription;
 	RC rc;
 	dirDescription.slotCount = 0;
@@ -30,29 +30,48 @@ RC RelationManager::createCatalog()
 
 	// Create table "Tables"
 	rbf_manager->createFile(tableName);
-	rbf_manager->openFile(tableName, fileHandle);
+	rbf_manager->openFile(tableName, tableFileHandle);
+	tableFileHandle.getNumberOfPages();
+	//cout << "old getNumberOfPages: " << tableFileHandle.getNumberOfPages() << endl;
 	char *page=new char[PAGE_SIZE];
 	memcpy(page+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
-	fileHandle.appendPage(page);
-	rbf_manager->closeFile(fileHandle);
+	tableFileHandle.appendPage(page);
+	//tableFileHandle.getNumberOfPages();
+	//cout << "new getNumberOfPages: " << tableFileHandle.getNumberOfPages() << endl;
+	rbf_manager->closeFile(tableFileHandle);
 	delete []page;
+
+	// Insert the tuple of "Tables" and "Columns" to "Tables"
+	rbf_manager->openFile(tableName, tableFileHandle);
+	rc = insertTableTuple(tableFileHandle, tableName, pageNum);
+	rc = insertTableTuple(tableFileHandle, colName, pageNum);
+	rbf_manager->closeFile(tableFileHandle);
 
 	// Create table "Columns"
 	rbf_manager->createFile(colName);
-	rbf_manager->openFile(colName, fileHandle);
+	rbf_manager->openFile(colName, colFileHandle);
+	colFileHandle.getNumberOfPages();
 	dirDescription.slotCount = 0;
 	dirDescription.freeSpacePointer = 0;
 	char *colPage=new char[PAGE_SIZE];
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
-	fileHandle.appendPage(colPage);
-	rbf_manager->closeFile(fileHandle);
+	colFileHandle.appendPage(colPage);
+	colFileHandle.getNumberOfPages();
+	rbf_manager->closeFile(colFileHandle);
 	delete []colPage;
+/*
+	// Insert the tuple of "Columns" to "Tables"
+	rbf_manager->openFile(tableName, colFileHandle);
+	rc = insertTableTuple(colFileHandle, colName, pageNum);
+	rbf_manager->closeFile(colFileHandle);
+
 
 	// Insert the tuple of "Tables" to "Tables"
 	rbf_manager->openFile(tableName, fileHandle);
 	rc = insertTableTuple(fileHandle, tableName, pageNum);
+	//cout<<"here???"<<endl;
 	rbf_manager->closeFile(fileHandle);
-
+*/
 	// Insert attrs of "Tables" to "Columns"
 	vector<Attribute> tableAttrs;
 	Attribute attr;
@@ -71,19 +90,19 @@ RC RelationManager::createCatalog()
 	attr.length = (AttrLength)50;
 	tableAttrs.push_back(attr);
 
-	rbf_manager->openFile(colName, fileHandle);
+	rbf_manager->openFile(colName, colFileHandle);
 	for(int pos=1; pos<=tableAttrs.size(); pos++){
-		rc = insertColTuple(fileHandle, tableAttrs[pos-1], pageNum, pos);
+		rc = insertColTuple(colFileHandle, tableAttrs[pos-1], pageNum, pos);
 	}
-	rbf_manager->closeFile(fileHandle);
+	rbf_manager->closeFile(colFileHandle);
 
 	table_id++;
-
+/*
 	// Insert the tuple of "Columns" to "Tables"
 	rbf_manager->openFile(tableName, fileHandle);
 	rc = insertTableTuple(fileHandle, colName, pageNum);
 	rbf_manager->closeFile(fileHandle);
-
+*/
 	// Insert attr of "Columns" to "Columns"
 	vector<Attribute> colAttrs;
 	attr.name = "column-name";
@@ -106,11 +125,11 @@ RC RelationManager::createCatalog()
 	attr.length = (AttrLength)4;
 	colAttrs.push_back(attr);
 
-	rbf_manager->openFile(colName, fileHandle);
+	rbf_manager->openFile(colName, colFileHandle);
 	for(int pos=1; pos<=colAttrs.size(); pos++){
-		rc = insertColTuple(fileHandle, colAttrs[pos-1], pageNum, pos);
+		rc = insertColTuple(colFileHandle, colAttrs[pos-1], pageNum, pos);
 	}
-	rbf_manager->closeFile(fileHandle);
+	rbf_manager->closeFile(colFileHandle);
 
 	table_id++;
 
@@ -135,9 +154,10 @@ bool RelationManager::tableExist(const string &tableName){
 RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &tableName, int pageNum){
 	char* page = new char[PAGE_SIZE];
 	//cout << "insertTableTuple getNumberOfPages: " << fileHandle.getNumberOfPages() << endl;
+	//cout<<"pageNum: "<<pageNum<<endl;
     if(fileHandle.readPage(pageNum,page)!=0){
     		cout << "tableName: " << tableName << endl;
-        cout << "readPage from insertTableTuple fail!" << endl;
+        cout << "readPage from insertTableTuple fail!" << endl << endl;
         return -1;
     }
 	DirDescription dirDescription;
@@ -198,16 +218,18 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 RC RelationManager::createTable(const string &tableName, const vector<Attribute> &attrs)
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
-	FileHandle fileHandle;
+	FileHandle fileHandle, tableFileHandle, colFileHandle;
 	RC rc;
 	rbf_manager->createFile(tableName);
 	rbf_manager->openFile(tableName, fileHandle);
+	fileHandle.getNumberOfPages();
 	DirDescription dirDescription;
 	dirDescription.slotCount = 0;
 	dirDescription.freeSpacePointer = 0;
 	char *page=new char[PAGE_SIZE];
 	memcpy(page+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	fileHandle.appendPage(page);
+	//fileHandle.getNumberOfPages();
 	rbf_manager->closeFile(fileHandle);
 	delete []page;
 
@@ -215,24 +237,24 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	int colSize=0;
 	int pageNum;
 	// Insert tuple to table "Tables"
-	rbf_manager->openFile("Tables", fileHandle);
+	rbf_manager->openFile("Tables", tableFileHandle);
 	//cout << "getNumberOfPages: " << fileHandle.getNumberOfPages() << endl;
 	tableSize = sizeof(int) + sizeof(short) + tableName.length()*2;
-	pageNum = rbf_manager->getFreePage(fileHandle, tableSize);
+	pageNum = rbf_manager->getFreePage(tableFileHandle, tableSize);
 	//cout << "pageNum: " << pageNum << endl;
-	insertTableTuple(fileHandle, tableName, pageNum);
-	rbf_manager->closeFile(fileHandle);
+	insertTableTuple(tableFileHandle, tableName, pageNum);
+	rbf_manager->closeFile(tableFileHandle);
 
 	// Insert tuple to table "Columns"
-	rbf_manager->openFile("Columns", fileHandle);
+	rbf_manager->openFile("Columns", colFileHandle);
 	for(vector<Attribute>::const_iterator i=attrs.begin(); i!=attrs.end(); i++){
 		colSize = colSize + sizeof(int) + sizeof(short) + i->name.length() + sizeof(int)*3;
 	}
-	pageNum = rbf_manager->getFreePage(fileHandle, colSize);
+	pageNum = rbf_manager->getFreePage(colFileHandle, colSize);
 	for(int pos=1; pos<=attrs.size(); pos++){
-		rc = insertColTuple(fileHandle, attrs[pos-1], pageNum, pos);
+		rc = insertColTuple(colFileHandle, attrs[pos-1], pageNum, pos);
 	}
-	rbf_manager->closeFile(fileHandle);
+	rbf_manager->closeFile(colFileHandle);
 	table_id++;
     return 0;
 }
@@ -276,6 +298,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
     rbf_manager->closeFile(fileHandle);
 
     // TODO: Find attrs by "Columns"
+    /*
     rbf_manager->openFile("Columns", fileHandle);
     char* page = new char[PAGE_SIZE];
     if(fileHandle.readPage(pageNum,page)!=0){
@@ -283,7 +306,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
         return -1;
     }
     offset = 0;
-
+	*/
 
 
     return 0;
