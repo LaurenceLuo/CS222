@@ -24,7 +24,7 @@ RecordBasedFileManager::~RecordBasedFileManager()
 }
 
 RC RecordBasedFileManager::createFile(const string &fileName) {
-    PagedFileManager *pfm_manager=PagedFileManager::instance();
+    PagedFileManager *pfm_manager=PagedFileManager::instance();//Memory leak?
     int currDir=0;
     int nextDir=1;
     if(pfm_manager->createFile(fileName)!=0){
@@ -156,7 +156,7 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
     Slot slot;
     memcpy(&slot,page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(rid.slotNum+1),sizeof(Slot));
     
-    //cout<<"slot.length: "<<slot.length<<endl;
+    //cout<<"slot.offset: "<<slot.offset<<endl;
     if(slot.length==DELETE_MARK){
         cout<<"Record been deleted!"<<endl;
         return -1;
@@ -603,7 +603,7 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
             delete []shiftContent;
 
             //cout<<"old freeSpacePointer: "<<dirDescription.freeSpacePointer<<" sizeDiff: "<<sizeDiff<<endl;
-            dirDescription.freeSpacePointer-=sizeDiff;
+            dirDescription.freeSpacePointer+=sizeDiff;
             //cout<<"dirDescription.freeSpacePointer: "<<dirDescription.freeSpacePointer<<" sizeDiff: "<<sizeDiff<<endl;
             memcpy(page+PAGE_SIZE-sizeof(DirDescription),&dirDescription,sizeof(DirDescription));
             
@@ -680,9 +680,79 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
 }
 
 RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, const string &attributeName, void *data){
-    for(int i=0;i<recordDescriptor.size();i++){
-        
+    char *page=new char[PAGE_SIZE];
+    if(fileHandle.readPage(rid.pageNum,page) != 0 ){
+        cout<<"read page from updateRecord fail!"<<endl;
+        return -1;
     }
-        
+
+    DirDescription dirDescription;
+    memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
+    
+    Slot slot;
+    memcpy(&slot,page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(rid.slotNum+1),sizeof(Slot));
+
+    char* record=new char[slot.length];
+    memcpy(record,page+slot.offset,slot.length);
+    
+    short* fieldOffset=new short[recordDescriptor.size()];
+    
+    int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
+    int fieldTotalSize=sizeof(short)+fieldOffsetSize;
+    for(int i=0;i<recordDescriptor.size();i++)
+        memcpy(&fieldOffset[i],record+sizeof(short)*i,sizeof(short));
+    
+    
+    int offset=fieldTotalSize;
+    for(int i=0;i<recordDescriptor.size();i++){
+        if(fieldOffset[i]==fieldTotalSize){
+            //cout<<"NULL"<<endl;
+            break;
+        }
+        switch(recordDescriptor[i].type){
+            case TypeInt:
+                if(recordDescriptor[i].name.compare(attributeName)==0){
+                    memcpy((int*)data,record+offset,sizeof(int));
+                    return 0;
+                }
+                offset+=sizeof(int);
+                break;
+            case TypeReal:
+                if(recordDescriptor[i].name.compare(attributeName)==0){
+                    memcpy((float*)data,record+offset,sizeof(float));
+                    return 0;
+                }
+                offset+=sizeof(float);
+                break;
+            case TypeVarChar:
+                int length;
+                memcpy( &length, record+offset, sizeof(int));
+                if(recordDescriptor[i].name.compare(attributeName)==0){
+                    memcpy((char*)data,record+offset+sizeof(int),length);
+                    return 0;
+                }
+                offset+=sizeof(int);
+                offset+=length;
+                break;
+        }
+    }
+    delete []fieldOffset;
+    delete []record;
+    delete []page;
+    cout<<"No such attribute!"<<endl;
+    return -1;
+}
+
+RC RecordBasedFileManager::scan(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const string &conditionAttribute, const CompOp compOp, const void *value, const vector<string> &attributeNames, RBFM_ScanIterator &rbfm_ScanIterator){
+    rbfm_ScanIterator.fileHandle=fileHandle;
+    rbfm_ScanIterator.recordDescriptor=recordDescriptor;
+    rbfm_ScanIterator.conditionAttribute=conditionAttribute;
+    rbfm_ScanIterator.compOp=compOp;
+    rbfm_ScanIterator.value=(char*)value;
+    rbfm_ScanIterator.attributeNames=attributeNames;
     return 0;
 }
+
+/*RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
+    return 0;
+}*/

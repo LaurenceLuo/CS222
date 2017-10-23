@@ -85,6 +85,13 @@ The scan iterator is NOT required to be implemented for the part 1 of the projec
 
 class RBFM_ScanIterator {
 public:
+  FileHandle fileHandle;
+  vector<Attribute> recordDescriptor;
+  string conditionAttribute;
+  CompOp compOp;                 // comparision type such as "<" and "="
+  char *value;                    // used in the comparison
+  vector<string> attributeNames; // a list of projected attributes
+    
   RBFM_ScanIterator() {};
   ~RBFM_ScanIterator() {};
 
