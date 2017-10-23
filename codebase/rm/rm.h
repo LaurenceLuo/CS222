@@ -68,6 +68,12 @@ public:
 
   RC dropAttribute(const string &tableName, const string &attributeName);
 
+private:
+  short table_id;
+
+  bool tableExist(const string &tableName);
+  RC insertTableTuple(FileHandle &fileHandle, const string &tableName, int pageNum);	// insert tuple to table "Tables"
+  RC insertColTuple(FileHandle &fileHandle, const vector<Attribute> &attrs, int pageNum);		// insert tuple to table "Columns"
 
 protected:
   RelationManager();
