@@ -182,9 +182,12 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &table_id, sizeof(int));
 	colSize += sizeof(int);
 	varcharLength = attr.name.length();
+	//cout<<"varcharLength: "<<varcharLength<<endl;
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &varcharLength, sizeof(short));
 	colSize += sizeof(short);
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &attr.name, varcharLength);
+	//cout<<"varcharLength: "<<varcharLength<<endl;
+	//cout << "attr.name: " << attr.name<< endl;
 	colSize += varcharLength;
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &attr.type, sizeof(int));
 	colSize += sizeof(int);
@@ -264,6 +267,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 	short varcharLength;
 	string name;
 	rbf_manager->openFile("Tables", tableFileHandle);
+
 	char* page = new char[PAGE_SIZE];
 	// find tableName is in which page of "Tables" and its table_id
 	//cout << "tableFileHandle.getNumberOfPages: " << tableFileHandle.getNumberOfPages() << endl;
@@ -299,7 +303,9 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 	delete[] page;
 	rbf_manager->closeFile(tableFileHandle);
 
+
     // Find attrs by "Columns"
+	//id=3;
     rbf_manager->openFile("Columns", colFileHandle);
     page = new char[PAGE_SIZE];
     for(int pageNum=1; pageNum<=colFileHandle.getNumberOfPages(); pageNum++){
@@ -329,10 +335,10 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
     int pos;
 	while(findID==id){
 		memcpy(&varcharLength, page+offset, sizeof(short));
-		//cout << "varcharLength: " << varcharLength << endl;
+		cout << "varcharLength: " << varcharLength << endl;
 		offset += sizeof(short);
 		memcpy(&attr.name, page+offset, varcharLength);
-		//cout << "name: " << attr.name << endl;
+		cout << "name: " << attr.name << endl;
 		offset += varcharLength;
 		memcpy(&attr.type, page+offset, sizeof(int));
 		offset += sizeof(int);
