@@ -439,7 +439,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 			offset += sizeof(short);
 			name = new char[varcharLength];
 			memcpy(name, page+offset, varcharLength);
-			//cout << "tableName in Tables: " << name << endl;
+			cout << "tableName in Tables: " << name << endl;
 			offset += varcharLength;
 			if(strcmp(name, TableName)==0)
 				break;
