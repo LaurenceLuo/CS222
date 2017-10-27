@@ -61,36 +61,36 @@ int RBFTest_8(RecordBasedFileManager *rbfm) {
     
     // Given the rid and attribute name, read the record attribute from file
     //cout<<"rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
-    char* name=new char[8];
+    char* name=new char[100];
     rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "EmpName", name);
     assert(rc == success && "ReadAttribute a record should not fail.");
 
     cout << endl << "Returned Data:" << endl;
     cout<<"EmpName: ";
-    char* _data=name;
+    char* _data=name+nullFieldsIndicatorActualSize;
     for(int i=0;i<8;i++){
         cout<<*_data;
         _data++;
     }
     cout<<endl;
     
-    int age;
-    rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "Age", &age);
+    char* age=new char[100];
+    rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "Age", age);
     assert(rc == success && "Read a attribute should not fail.");
-    cout<<"Age: "<<age<<endl;
+    cout<<"Age: "<<*(int *)((char *)age+nullFieldsIndicatorActualSize)<<endl;
     
-    float height;
-    rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "Height", &height);
+    char* height=new char[100];
+    rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "Height", height);
     assert(rc == success && "Read a attribute should not fail.");
-    cout<<"Height: "<<height<<endl;
+    cout<<"Height: "<<*(float *)((char *)height+nullFieldsIndicatorActualSize)<<endl;
     
-    int salary;
-    rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "Salary", &salary);
+    char* salary=new char[100];
+    rc = rbfm->readAttribute(fileHandle, recordDescriptor, rid, "Salary", salary);
     assert(rc == success && "Read a attribute should not fail.");
-    cout<<"Salary: "<<salary<<endl;
+    cout<<"Salary: "<<*(int *)((char *)salary+nullFieldsIndicatorActualSize)<<endl;
     
     // Compare whether the two memory blocks are the same
-    if(memcmp((char*)record+nullFieldsIndicatorActualSize+sizeof(int), name, 8) != 0)
+    if(memcmp((char*)record+nullFieldsIndicatorActualSize+sizeof(int), name+nullFieldsIndicatorActualSize, 8) != 0)
     {
         cout << "[FAIL] Test Case 8e Failed!" << endl << endl;
         free(record);
