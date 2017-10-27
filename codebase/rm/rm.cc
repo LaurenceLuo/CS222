@@ -224,6 +224,7 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	FileHandle fileHandle, tableFileHandle, colFileHandle;
 	RC rc;
 	rbf_manager->createFile(tableName);
+	/*
 	rbf_manager->openFile(tableName, fileHandle);
 	//fileHandle.getNumberOfPages();
 	DirDescription dirDescription;
@@ -237,6 +238,7 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	rbf_manager->closeFile(fileHandle);
 	page = NULL;
 	delete []page;
+	*/
 
 	int tableSize;
 	int colSize=0;
