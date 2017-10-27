@@ -13,20 +13,20 @@
 
 using namespace std;
 
-int RBFTest_8f(RecordBasedFileManager *rbfm) {
+int RBFTest_8h(RecordBasedFileManager *rbfm) {
     // Functions tested
     // 1. Create Record-Based File
     // 2. Open Record-Based File
     // 3. Insert Multiple Records
     // 4. Scan
-    // 5. Int Compare
+    // 5. VarChar Compare
     // 6. Print Records
     // 7. Close Record-Based File
     // 8. Destroy Record-Based File
     cout << endl << "***** In RBF Test Case 8 *****" << endl;
    
     RC rc;
-    string fileName = "test8f";
+    string fileName = "test8h";
 
     // Create a file named "test8"
     rc = rbfm->createFile(fileName);
@@ -54,27 +54,27 @@ int RBFTest_8f(RecordBasedFileManager *rbfm) {
     memset(nullsIndicator, 0, nullFieldsIndicatorActualSize);
 
     // Insert a record into a file and print the record
+    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "AAAAAAAA", 25, 177.8, 6200, record, &recordSize);
+    cout << "Inserting Record:" << endl;
+    rbfm->printRecord(recordDescriptor, record);
+    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
+    
+    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Bnteater", 25, 177.8, 6200, record, &recordSize);
+    cout << "Inserting Record:" << endl;
+    rbfm->printRecord(recordDescriptor, record);
+    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
+    
+    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Alteater", 25, 177.8, 6200, record, &recordSize);
+    cout << "Inserting Record:" << endl;
+    rbfm->printRecord(recordDescriptor, record);
+    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
+    
+    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "ZZZZZZZZ", 25, 177.8, 6200, record, &recordSize);
+    cout << "Inserting Record:" << endl;
+    rbfm->printRecord(recordDescriptor, record);
+    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
+    
     prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Anteater", 25, 177.8, 6200, record, &recordSize);
-    cout << "Inserting Record:" << endl;
-    rbfm->printRecord(recordDescriptor, record);
-    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
-    
-    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Anteater", 25, 177.8, 1000, record, &recordSize);
-    cout << "Inserting Record:" << endl;
-    rbfm->printRecord(recordDescriptor, record);
-    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
-    
-    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Anteater", 25, 177.8, 2000, record, &recordSize);
-    cout << "Inserting Record:" << endl;
-    rbfm->printRecord(recordDescriptor, record);
-    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
-    
-    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Anteater", 25, 177.8, 3000, record, &recordSize);
-    cout << "Inserting Record:" << endl;
-    rbfm->printRecord(recordDescriptor, record);
-    rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
-    
-    prepareRecord(recordDescriptor.size(), nullsIndicator, 8, "Anteater", 25, 177.8, 4000, record, &recordSize);
     cout << "Inserting Record:" << endl;
     rbfm->printRecord(recordDescriptor, record);
     rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
@@ -87,7 +87,7 @@ int RBFTest_8f(RecordBasedFileManager *rbfm) {
     attrs.push_back("Height");
     attrs.push_back("Salary");
     
-    int value=4000;
+    char value[]="Anteater";
     rc = rbfm->scan(fileHandle, recordDescriptor, "", NO_OP, NULL, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     RID _rid;
@@ -97,45 +97,45 @@ int RBFTest_8f(RecordBasedFileManager *rbfm) {
         rbfm->printRecord(recordDescriptor, returnedData);
     }
 
-    rc = rbfm->scan(fileHandle, recordDescriptor, "Salary", LT_OP, &value, attrs, rmsi);
+    rc = rbfm->scan(fileHandle, recordDescriptor, "EmpName", LT_OP, &value, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     while(rmsi.getNextRecord(_rid, returnedData) != RBFM_EOF){
-        cout << endl << "LT_OP 4000 Data:" << endl;
+        cout << endl << "LT_OP Anteater Data:" << endl;
         rbfm->printRecord(recordDescriptor, returnedData);
     }
     
-    rc = rbfm->scan(fileHandle, recordDescriptor, "Salary", LE_OP, &value, attrs, rmsi);
+    rc = rbfm->scan(fileHandle, recordDescriptor, "EmpName", LE_OP, &value, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     while(rmsi.getNextRecord(_rid, returnedData) != RBFM_EOF){
-        cout << endl << "LE_OP 4000 Data:" << endl;
+        cout << endl << "LE_OP Anteater Data:" << endl;
         rbfm->printRecord(recordDescriptor, returnedData);
     }
     
-    rc = rbfm->scan(fileHandle, recordDescriptor, "Salary", GT_OP, &value, attrs, rmsi);
+    rc = rbfm->scan(fileHandle, recordDescriptor, "EmpName", GT_OP, &value, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     while(rmsi.getNextRecord(_rid, returnedData) != RBFM_EOF){
-        cout << endl << "GT_OP 4000 Data:" << endl;
+        cout << endl << "GT_OP Anteater Data:" << endl;
         rbfm->printRecord(recordDescriptor, returnedData);
     }
     
-    rc = rbfm->scan(fileHandle, recordDescriptor, "Salary", GE_OP, &value, attrs, rmsi);
+    rc = rbfm->scan(fileHandle, recordDescriptor, "EmpName", GE_OP, &value, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     while(rmsi.getNextRecord(_rid, returnedData) != RBFM_EOF){
-        cout << endl << "GE_OP 4000 Data:" << endl;
+        cout << endl << "GE_OP Anteater Data:" << endl;
         rbfm->printRecord(recordDescriptor, returnedData);
     }
     
-    rc = rbfm->scan(fileHandle, recordDescriptor, "Salary", NE_OP, &value, attrs, rmsi);
+    rc = rbfm->scan(fileHandle, recordDescriptor, "EmpName", NE_OP, &value, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     while(rmsi.getNextRecord(_rid, returnedData) != RBFM_EOF){
-        cout << endl << "NE_OP 4000 Data:" << endl;
+        cout << endl << "NE_OP Anteater Data:" << endl;
         rbfm->printRecord(recordDescriptor, returnedData);
     }
 
-    rc = rbfm->scan(fileHandle, recordDescriptor, "Salary", EQ_OP, &value, attrs, rmsi);
+    rc = rbfm->scan(fileHandle, recordDescriptor, "EmpName", EQ_OP, &value, attrs, rmsi);
     assert(rc == success && "RecordBasedFileManager::scan() should not fail.");
     while(rmsi.getNextRecord(_rid, returnedData) != RBFM_EOF){
-        cout << endl << "EQ_OP 4000 Data:" << endl;
+        cout << endl << "EQ_OP Anteater Data:" << endl;
         rbfm->printRecord(recordDescriptor, returnedData);
     }
 
@@ -157,7 +157,7 @@ int RBFTest_8f(RecordBasedFileManager *rbfm) {
     
     cout << endl;
 
-    // Close the file "test8"
+    // Close the file "test8g"
     rc = rbfm->closeFile(fileHandle);
     assert(rc == success && "Closing the file should not fail.");
 
@@ -171,7 +171,7 @@ int RBFTest_8f(RecordBasedFileManager *rbfm) {
     free(record);
     free(returnedData);
 
-    cout << "RBF Test Case 8f Finished! The result will be examined." << endl << endl;
+    cout << "RBF Test Case 8g Finished! The result will be examined." << endl << endl;
     
     return 0;
 }
@@ -181,8 +181,8 @@ int main()
     // To test the functionality of the record-based file manager 
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance(); 
      
-    remove("test8f");
+    remove("test8h");
        
-    RC rcmain = RBFTest_8f(rbfm);
+    RC rcmain = RBFTest_8h(rbfm);
     return rcmain;
 }

@@ -108,8 +108,8 @@ private:
   void *_value;                    // used in the comparison
   vector<string> _attributeNames; // a list of projected attributes
   RID _rid;
-  bool compare(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type);
-  bool compareVarChar(void* storedValue, const CompOp compOp, const void *valueToCompare);
+  bool compareNum(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type);
+  bool compareVarChar(int &storedValue_len, void* storedValue, const CompOp compOp, int &valueToCompare_len, const void *valueToCompare);
   RC writeIntoData(void *returnedData, const vector<Attribute> &recordDescriptor, const vector<string> &attributeNames, void *data);
 };
 

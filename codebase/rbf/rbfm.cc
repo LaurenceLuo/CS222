@@ -173,7 +173,7 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
     int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
     int fieldTotalSize=sizeof(short)+fieldOffsetSize;
     int dataSize=slot.length-fieldTotalSize;
-    cout<<"slot.length: "<<slot.length<<" fieldTotalSize: "<<fieldTotalSize<<endl;
+    //cout<<"slot.length: "<<slot.length<<" fieldTotalSize: "<<fieldTotalSize<<endl;
     char* formattedRecord=new char[slot.length];
     memcpy(formattedRecord,page+slot.offset,slot.length);
     char* oldData=new char[dataSize];
@@ -825,7 +825,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
             if(_conditionAttribute.empty()){
                 found=true;
                 rid=_rid;
-                cout<<"Found: rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
+                //cout<<"Found: rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
                 writeIntoData(record,_recordDescriptor,_attributeNames,data);
                 break;
             }
@@ -836,7 +836,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                         //memcpy((int*)data,record+offset,sizeof(int));
                         int storedValue;
                         memcpy(&storedValue,record+offset,sizeof(int));
-                        if(compare(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
+                        if(compareNum(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
                             found=true;
                             rid=_rid;
                             writeIntoData(record,_recordDescriptor,_attributeNames,data);
@@ -849,7 +849,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                     if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
                         float storedValue;
                         memcpy(&storedValue,record+offset,sizeof(float));
-                        if(compare(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
+                        if(compareNum(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
                             found=true;
                             rid=_rid;
                             writeIntoData(record,_recordDescriptor,_attributeNames,data);
@@ -864,7 +864,8 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                     if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
                         char *storedValue=new char[length];
                         memcpy(storedValue,record+offset+sizeof(int),length);
-                        if(compare(storedValue,_compOp,_value,_recordDescriptor[j].type)){
+                        int _valurLength=(int)strlen((char*)_value);
+                        if(compareVarChar(length,storedValue,_compOp,_valurLength,_value)){
                             found=true;
                             rid=_rid;
                             writeIntoData(record,_recordDescriptor,_attributeNames,data);
@@ -884,7 +885,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
     return 0;
 }
 
-bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type){
+bool RBFM_ScanIterator::compareNum(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type){
     switch(compOp){
         case EQ_OP:
             switch(type){
@@ -892,8 +893,8 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
                     return *(int*)storedValue==*(int*)valueToCompare;
                 case TypeReal:
                     return *(float*)storedValue==*(float*)valueToCompare;
-                case TypeVarChar:
-                    return compareVarChar(storedValue,compOp,valueToCompare);
+                default:
+                    return true;
             }
         case LT_OP:
             switch(type){
@@ -901,8 +902,8 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
                     return *(int*)storedValue<*(int*)valueToCompare;
                 case TypeReal:
                     return *(float*)storedValue<*(float*)valueToCompare;
-                case TypeVarChar:
-                    return compareVarChar(storedValue,compOp,valueToCompare);
+                default:
+                    return true;
             }
         case LE_OP:
             switch(type){
@@ -910,8 +911,8 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
                     return *(int*)storedValue<=*(int*)valueToCompare;
                 case TypeReal:
                     return *(float*)storedValue<=*(float*)valueToCompare;
-                case TypeVarChar:
-                    return compareVarChar(storedValue,compOp,valueToCompare);
+                default:
+                    return true;
             }
         case GT_OP:
             switch(type){
@@ -919,8 +920,8 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
                     return *(int*)storedValue>*(int*)valueToCompare;
                 case TypeReal:
                     return *(float*)storedValue>*(float*)valueToCompare;
-                case TypeVarChar:
-                    return compareVarChar(storedValue,compOp,valueToCompare);
+                default:
+                    return true;
             }
         case GE_OP:
             switch(type){
@@ -928,8 +929,8 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
                     return *(int*)storedValue>=*(int*)valueToCompare;
                 case TypeReal:
                     return *(float*)storedValue>=*(float*)valueToCompare;
-                case TypeVarChar:
-                    return compareVarChar(storedValue,compOp,valueToCompare);
+                default:
+                    return true;
             }
         case NE_OP:
             switch(type){
@@ -937,8 +938,8 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
                     return *(int*)storedValue!=*(int*)valueToCompare;
                 case TypeReal:
                     return *(float*)storedValue!=*(float*)valueToCompare;
-                case TypeVarChar:
-                    return compareVarChar(storedValue,compOp,valueToCompare);
+                default:
+                    return true;
             }
         case NO_OP:
             return true;
@@ -946,20 +947,17 @@ bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const vo
     return 0;
 }
 
-bool RBFM_ScanIterator::compareVarChar(void* storedValue, const CompOp compOp, const void *valueToCompare){
-    int storedValue_len=*(int*)storedValue;
-    int valueToCompare_len=*(int*)valueToCompare;
+bool RBFM_ScanIterator::compareVarChar(int &storedValue_len, void* storedValue, const CompOp compOp, int &valueToCompare_len, const void *valueToCompare){
+    int sizeToCompare=storedValue_len;
     if(storedValue_len!=valueToCompare_len)
-        return false;
-    char* _storedValue=(char*)storedValue+sizeof(int);
-    char* _valueToCompare=(char*)_valueToCompare+sizeof(int);
+        sizeToCompare=min(storedValue_len,valueToCompare_len);
     switch(compOp){
-        case EQ_OP: return strcmp(_storedValue,_valueToCompare)==0;
-        case LT_OP: return strcmp(_storedValue,_valueToCompare)<0;
-        case LE_OP: return strcmp(_storedValue,_valueToCompare)<=0;
-        case GT_OP: return strcmp(_storedValue,_valueToCompare)>0;
-        case GE_OP: return strcmp(_storedValue,_valueToCompare)>=0;
-        case NE_OP: return strcmp(_storedValue,_valueToCompare)!=0;
+        case EQ_OP: return strncmp((char*)storedValue,(char*)valueToCompare,sizeToCompare)==0;
+        case LT_OP: return strncmp((char*)storedValue,(char*)valueToCompare,sizeToCompare)<0;
+        case LE_OP: return strncmp((char*)storedValue,(char*)valueToCompare,sizeToCompare)<=0;
+        case GT_OP: return strncmp((char*)storedValue,(char*)valueToCompare,sizeToCompare)>0;
+        case GE_OP: return strncmp((char*)storedValue,(char*)valueToCompare,sizeToCompare)>=0;
+        case NE_OP: return strncmp((char*)storedValue,(char*)valueToCompare,sizeToCompare)!=0;
         case NO_OP: return true;
     }
 }
