@@ -59,6 +59,7 @@ RC RecordBasedFileManager::openFile(const string &fileName, FileHandle &fileHand
         cout<< "File " << fileName << " open fail!" << endl << endl;
         return -1;
     }
+    fileHandle.getNumberOfPages();
     return 0;
 }
 
@@ -172,7 +173,7 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
     int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
     int fieldTotalSize=sizeof(short)+fieldOffsetSize;
     int dataSize=slot.length-fieldTotalSize;
-    
+    cout<<"slot.length: "<<slot.length<<" fieldTotalSize: "<<fieldTotalSize<<endl;
     char* formattedRecord=new char[slot.length];
     memcpy(formattedRecord,page+slot.offset,slot.length);
     char* oldData=new char[dataSize];
@@ -187,7 +188,7 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
         //cout<<"recordDescriptor.size(): "<<recordDescriptor.size()<<endl;
         memcpy(&fieldOffset,formattedRecord+sizeof(short)*(i+1),sizeof(short));
         if(fieldOffset==fieldTotalSize){//null Bit Found
-            nullIndicator[0]+=1<<(7*nullIndicatorSize-i);
+            nullIndicator[i/CHAR_BIT]+=1<<(7-i%CHAR_BIT);
         }
     }
     
@@ -227,30 +228,43 @@ RC RecordBasedFileManager::makeDirectoryPage(FileHandle &fileHandle,int &currDir
 int RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescriptor, const void *data){
     int recordSize=0;
     char *_data=(char*)data;
+    //int nullIndicatorBytes=getNullIndicatorSize(recordDescriptor);
+    int nullIndicatorSize=getNullIndicatorSize(recordDescriptor);
+    char* nullIndicator=new char[nullIndicatorSize];
+    memcpy(nullIndicator, data , nullIndicatorSize);
+    int offset=0;
+    recordSize+=nullIndicatorSize;
     
-    int nullIndicatorBytes=getNullIndicatorSize(recordDescriptor);
-    
-    recordSize+=nullIndicatorBytes;
     //_data+=nullIndicatorBytes;
-    
+    int j=0;
     for(vector<Attribute>::const_iterator i=recordDescriptor.begin();i!=recordDescriptor.end();i++){
-        switch(i->type){
-            case TypeInt:
-                recordSize+=sizeof(int);
-                break;
-            case TypeReal:
-                recordSize+=sizeof(float);
-                break;
-            case TypeVarChar:
-                int length;
-                memcpy(&length , _data+recordSize, sizeof(int));
-                recordSize += sizeof(int);
-                recordSize += length;
-                break;
-               
+        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7-(j%CHAR_BIT) ) )){
+            //cout<<"NULL bit here! "<<j<<endl;
         }
+        else{
+            switch(i->type){
+                case TypeInt:
+                    recordSize+=sizeof(int);
+                    break;
+                case TypeReal:
+                    recordSize+=sizeof(float);
+                    break;
+                case TypeVarChar:
+                    int length;
+                    memcpy(&length , _data+recordSize, sizeof(int));
+                    //cout<<"recordSize: "<<recordSize<<" length: "<<length<<endl;
+                    recordSize += sizeof(int);
+                    recordSize += length;
+                    break;
+                    
+            }
+        }
+        j++;
     }
+    delete []nullIndicator;
+    //cout<<"Record Size: "<<recordSize<<endl;
     return recordSize;
+
 }
 
 int RecordBasedFileManager::getNullIndicatorSize(const vector<Attribute> &recordDescriptor){
@@ -260,12 +274,11 @@ int RecordBasedFileManager::getNullIndicatorSize(const vector<Attribute> &record
 int RecordBasedFileManager::formatRecord(const vector<Attribute> &recordDescriptor, const void *data, char * &formattedRecord) {
     char *_data=(char*)data;
     int offset=0;
-
     short fieldSize=(short)recordDescriptor.size();
     short* fieldOffset=new short[recordDescriptor.size()*sizeof(short)];
     
-    int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
-    int fieldTotalSize=sizeof(short)+fieldOffsetSize;
+    //int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
+    int fieldTotalSize=sizeof(short)+recordDescriptor.size()*sizeof(short);
     int nullIndicatorSize=getNullIndicatorSize(recordDescriptor);
     //cout<<"nullIndicatorSize: "<<nullIndicatorSize<<endl;//4
     char* nullIndicator=new char[nullIndicatorSize];
@@ -273,7 +286,7 @@ int RecordBasedFileManager::formatRecord(const vector<Attribute> &recordDescript
     
     int j=0;
     for(vector<Attribute>::const_iterator i=recordDescriptor.begin();i!=recordDescriptor.end();i++){
-        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7*nullIndicatorSize-(j%CHAR_BIT) ) )){
+        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7-j%CHAR_BIT ) )){
             fieldOffset[j]=fieldTotalSize;
         }
         else{
@@ -296,6 +309,7 @@ int RecordBasedFileManager::formatRecord(const vector<Attribute> &recordDescript
     }
     
     int originalRecordSize=getRecordSize(recordDescriptor,data)-nullIndicatorSize;
+    //cout<<"fieldTotalSize: "<<fieldTotalSize<<" originalRecordSize: "<<originalRecordSize<<endl;
     formattedRecord=new char[originalRecordSize+fieldTotalSize];
     //cout<<"originalRecordSize: "<<fieldOffsetSize<<" fieldTotalSize: "<<fieldTotalSize<<endl;
     //cout<<"FormattedRecordLengthWrite: "<<fieldTotalSize+originalRecordSize<<endl;
@@ -303,18 +317,18 @@ int RecordBasedFileManager::formatRecord(const vector<Attribute> &recordDescript
     //memcpy(test+1,_data+nullIndicatorSize,22);
     
     memcpy(formattedRecord,&fieldSize,sizeof(short));
-    memcpy(formattedRecord+sizeof(short),fieldOffset,fieldOffsetSize);
+    memcpy(formattedRecord+sizeof(short),fieldOffset,recordDescriptor.size()*sizeof(short));
     memcpy(formattedRecord+fieldTotalSize,_data+nullIndicatorSize,originalRecordSize);
     //cout<<"FormattingRecord: fieldTotalSize: "<<fieldTotalSize<<" originalRecordSize: "<<originalRecordSize<<endl;
     /*int nullIndicatorS=getNullIndicatorSize(recordDescriptor);
-    unsigned char* nu=(unsigned char *) malloc(nullIndicatorS);
-    memset(nu, 0, nullIndicatorS);
-    memcpy(test,nu,sizeof(short));
-    cout<<"Print here!!!!!!!!!!"<<endl;
-    printRecord(recordDescriptor,test);
-    cout<<endl;*/
+     unsigned char* nu=(unsigned char *) malloc(nullIndicatorS);
+     memset(nu, 0, nullIndicatorS);
+     memcpy(test,nu,sizeof(short));
+     cout<<"Print here!!!!!!!!!!"<<endl;
+     printRecord(recordDescriptor,test);
+     cout<<endl;*/
     
-
+    
     delete []fieldOffset;
     delete []nullIndicator;
     
@@ -372,54 +386,54 @@ int RecordBasedFileManager::getFreePage(FileHandle &fileHandle, int formattedRec
 
 RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor, const void *data) {
     char *_data=(char*)data;
-    //_data+=byteForNullsIndicator;
     
     int nullIndicatorSize=getNullIndicatorSize(recordDescriptor);
     char* nullIndicator=new char[nullIndicatorSize];
     memcpy(nullIndicator, data , nullIndicatorSize);
     int offset=0;
     offset+=nullIndicatorSize;
+    _data+=nullIndicatorSize;
     
     int j=0;
     for(vector<Attribute>::const_iterator i=recordDescriptor.begin();i!=recordDescriptor.end();i++){
-        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7*nullIndicatorSize-(j%CHAR_BIT) ) ))
-            cout<<i->name<<": NULL"<<"\t";
-        else{
-        switch(i->type){
-            case TypeInt:
-            cout<<i->name<<": "<<(*(int*)_data)<<"\t";
-                offset+=sizeof(int);
-                _data+=sizeof(int);
-                //cout<<"offset: "<<offset<<endl;
-                break;
-            case TypeReal:
-                cout<<i->name<<": "<<(*(float*)_data)<<"\t";
-                offset+=sizeof(float);
-                _data+=sizeof(float);
-                //cout<<"offset: "<<offset<<endl;
-                break;
-            case TypeVarChar:
-                cout<<i->name<<": ";
-                //unsigned length=i->length;
-                int len;
-                memcpy( &len, (char*)data+offset, sizeof(int));
-                offset+=sizeof(int);
-                _data += offset;
-                for(int j = 0; j < len; j++){
-                    cout<<*_data;
-                    _data++;
-                }
-                cout<<"\t";
-                offset+=len;
-                //cout<<"offset: "<<offset<<endl;
-                //_data+=offset;
-
-                break;
+        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7-(j%CHAR_BIT) ) )){
+            cout<<j<<" "<<i->name<<": NULL"<<"\t";
         }
+        else{
+            switch(i->type){
+                case TypeInt:
+                    cout<<i->name<<": "<<(*(int*)_data)<<"\t";
+                    offset+=sizeof(int);
+                    _data+=sizeof(int);
+                    //cout<<"offset: "<<offset<<endl;
+                    break;
+                case TypeReal:
+                    cout<<i->name<<": "<<(*(float*)_data)<<"\t";
+                    offset+=sizeof(float);
+                    _data+=sizeof(float);
+                    //cout<<"offset: "<<offset<<endl;
+                    break;
+                case TypeVarChar:
+                    cout<<i->name<<": ";
+                    //unsigned length=i->length;
+                    int len;
+                    memcpy( &len, (char*)data+offset, sizeof(int));
+                    offset+=sizeof(int);
+                    _data += sizeof(int);
+                    for(int j = 0; j < len; j++){
+                        cout<<*_data;
+                        _data++;
+                    }
+                    cout<<"\t";
+                    offset+=len;
+                    //cout<<"offset: "<<offset<<endl;
+                    //_data+=offset;
+                    
+                    break;
+            }
         }
         j++;
     }
-    cout<<endl;
     delete []nullIndicator;
     return 0;
 }
@@ -743,16 +757,278 @@ RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const vector<At
     return -1;
 }
 
-RC RecordBasedFileManager::scan(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const string &conditionAttribute, const CompOp compOp, const void *value, const vector<string> &attributeNames, RBFM_ScanIterator &rbfm_ScanIterator){
-    rbfm_ScanIterator.fileHandle=fileHandle;
-    rbfm_ScanIterator.recordDescriptor=recordDescriptor;
-    rbfm_ScanIterator.conditionAttribute=conditionAttribute;
-    rbfm_ScanIterator.compOp=compOp;
-    rbfm_ScanIterator.value=(char*)value;
-    rbfm_ScanIterator.attributeNames=attributeNames;
+RC RBFM_ScanIterator::initialization(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const string &conditionAttribute, const CompOp compOp, const void *value, const vector<string> &attributeNames){
+    _fileHandle=fileHandle;
+    _fileHandle.getNumberOfPages();
+    _recordDescriptor=recordDescriptor;
+    _conditionAttribute=conditionAttribute;
+    _compOp=compOp;
+    _value=(char*)value;
+    _attributeNames=attributeNames;
+    _rid.pageNum=1;
+    _rid.slotNum=0;
     return 0;
 }
 
-/*RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
+RC RecordBasedFileManager::scan(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const string &conditionAttribute, const CompOp compOp, const void *value, const vector<string> &attributeNames, RBFM_ScanIterator &rbfm_ScanIterator){
+    return rbfm_ScanIterator.initialization(fileHandle,recordDescriptor,conditionAttribute,compOp,value,attributeNames);
+}
+
+RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
+    RecordBasedFileManager *_rbfm=RecordBasedFileManager::instance();
+    char *page=new char[PAGE_SIZE];
+    if(_rid.pageNum>_fileHandle.getNumberOfPages()){
+        cout<<"Invalid pageNum: "<<_rid.pageNum<<" for getNextRecord!"<<endl;
+        return -1;
+    }
+    if(_fileHandle.readPage(_rid.pageNum,page)!=0){
+        cout<<"readPage from getNextRecord fail!"<<" PageNum: "<<endl;
+        return -1;
+    }
+    
+    bool found=false;
+    DirDescription dirDescription;
+    memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
+    while(!found){
+        //cout<<"_rid.slotNum: "<<_rid.slotNum<<" dirDescription.slotCount: "<<dirDescription.slotCount<<endl;
+        if(_rid.slotNum+1>dirDescription.slotCount){
+            _rid.slotNum=0;
+            _rid.pageNum++;
+            if(_rid.pageNum%DIR_NUM==0)
+                _rid.pageNum++;
+            if(_rid.pageNum>_fileHandle.getNumberOfPages()){
+                cout<<"Approach file end. "<<endl;
+                return RBFM_EOF;
+            }
+            else
+                _fileHandle.readPage(_rid.pageNum,page);
+            memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
+        }
+        Slot slot;
+        memcpy(&slot,page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(_rid.slotNum+1),sizeof(Slot));
+        
+        int fieldOffsetSize =_recordDescriptor.size()*sizeof(short);
+        int fieldTotalSize=sizeof(short)+fieldOffsetSize;
+        int dataSize=slot.length-fieldTotalSize;
+        int nullIndicatorSize=ceil((double)_recordDescriptor.size()/CHAR_BIT);
+        char *record=new char[dataSize+nullIndicatorSize];
+        
+        if(_rbfm->readRecord(_fileHandle, _recordDescriptor, _rid, record)!=0){
+            cout<<"ReadRecord from getNextRecord fail!"<<endl;
+            return -1;
+        }
+        
+        //unsigned char* nullIndicator=(unsigned char *) malloc(nullIndicatorSize);
+        //memcpy(nullIndicator,record,nullIndicatorSize);
+        int offset=nullIndicatorSize;
+        for(int j=0;j<_recordDescriptor.size();j++){
+            if(_conditionAttribute.empty()){
+                found=true;
+                rid=_rid;
+                cout<<"Found: rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
+                writeIntoData(record,_recordDescriptor,_attributeNames,data);
+                break;
+            }
+            
+            switch(_recordDescriptor[j].type){
+                case TypeInt:
+                    if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
+                        //memcpy((int*)data,record+offset,sizeof(int));
+                        int storedValue;
+                        memcpy(&storedValue,record+offset,sizeof(int));
+                        if(compare(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
+                            found=true;
+                            rid=_rid;
+                            writeIntoData(record,_recordDescriptor,_attributeNames,data);
+                            break;
+                        }
+                    }
+                    offset+=sizeof(int);
+                    break;
+                case TypeReal:
+                    if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
+                        float storedValue;
+                        memcpy(&storedValue,record+offset,sizeof(float));
+                        if(compare(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
+                            found=true;
+                            rid=_rid;
+                            writeIntoData(record,_recordDescriptor,_attributeNames,data);
+                            break;
+                        }
+                    }
+                    offset+=sizeof(float);
+                    break;
+                case TypeVarChar:
+                    int length;
+                    memcpy( &length, record+offset, sizeof(int));
+                    if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
+                        char *storedValue=new char[length];
+                        memcpy(storedValue,record+offset+sizeof(int),length);
+                        if(compare(storedValue,_compOp,_value,_recordDescriptor[j].type)){
+                            found=true;
+                            rid=_rid;
+                            writeIntoData(record,_recordDescriptor,_attributeNames,data);
+                            delete []storedValue;
+                            break;
+                        }
+                        //compare(_value,compOp,value);
+                        delete []storedValue;
+                    }
+                    offset+=sizeof(int)+length;
+            }
+        }
+        delete []record;
+        _rid.slotNum++;
+    }
+    delete []page;
     return 0;
-}*/
+}
+
+bool RBFM_ScanIterator::compare(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type){
+    switch(compOp){
+        case EQ_OP:
+            switch(type){
+                case TypeInt:
+                    return *(int*)storedValue==*(int*)valueToCompare;
+                case TypeReal:
+                    return *(float*)storedValue==*(float*)valueToCompare;
+                case TypeVarChar:
+                    return compareVarChar(storedValue,compOp,valueToCompare);
+            }
+        case LT_OP:
+            switch(type){
+                case TypeInt:
+                    return *(int*)storedValue<*(int*)valueToCompare;
+                case TypeReal:
+                    return *(float*)storedValue<*(float*)valueToCompare;
+                case TypeVarChar:
+                    return compareVarChar(storedValue,compOp,valueToCompare);
+            }
+        case LE_OP:
+            switch(type){
+                case TypeInt:
+                    return *(int*)storedValue<=*(int*)valueToCompare;
+                case TypeReal:
+                    return *(float*)storedValue<=*(float*)valueToCompare;
+                case TypeVarChar:
+                    return compareVarChar(storedValue,compOp,valueToCompare);
+            }
+        case GT_OP:
+            switch(type){
+                case TypeInt:
+                    return *(int*)storedValue>*(int*)valueToCompare;
+                case TypeReal:
+                    return *(float*)storedValue>*(float*)valueToCompare;
+                case TypeVarChar:
+                    return compareVarChar(storedValue,compOp,valueToCompare);
+            }
+        case GE_OP:
+            switch(type){
+                case TypeInt:
+                    return *(int*)storedValue>=*(int*)valueToCompare;
+                case TypeReal:
+                    return *(float*)storedValue>=*(float*)valueToCompare;
+                case TypeVarChar:
+                    return compareVarChar(storedValue,compOp,valueToCompare);
+            }
+        case NE_OP:
+            switch(type){
+                case TypeInt:
+                    return *(int*)storedValue!=*(int*)valueToCompare;
+                case TypeReal:
+                    return *(float*)storedValue!=*(float*)valueToCompare;
+                case TypeVarChar:
+                    return compareVarChar(storedValue,compOp,valueToCompare);
+            }
+        case NO_OP:
+            return true;
+    }
+    return 0;
+}
+
+bool RBFM_ScanIterator::compareVarChar(void* storedValue, const CompOp compOp, const void *valueToCompare){
+    int storedValue_len=*(int*)storedValue;
+    int valueToCompare_len=*(int*)valueToCompare;
+    if(storedValue_len!=valueToCompare_len)
+        return false;
+    char* _storedValue=(char*)storedValue+sizeof(int);
+    char* _valueToCompare=(char*)_valueToCompare+sizeof(int);
+    switch(compOp){
+        case EQ_OP: return strcmp(_storedValue,_valueToCompare)==0;
+        case LT_OP: return strcmp(_storedValue,_valueToCompare)<0;
+        case LE_OP: return strcmp(_storedValue,_valueToCompare)<=0;
+        case GT_OP: return strcmp(_storedValue,_valueToCompare)>0;
+        case GE_OP: return strcmp(_storedValue,_valueToCompare)>=0;
+        case NE_OP: return strcmp(_storedValue,_valueToCompare)!=0;
+        case NO_OP: return true;
+    }
+}
+
+RC RBFM_ScanIterator::writeIntoData(void *returnedData, const vector<Attribute> &recordDescriptor, const vector<string> &attributeNames, void *data){
+    int nullIndicatorSize=ceil((double)recordDescriptor.size()/CHAR_BIT);
+    unsigned char* nullIndicator=(unsigned char *) malloc(nullIndicatorSize);
+    memcpy(nullIndicator,returnedData,nullIndicatorSize);
+
+    int newNullIndicatorSize=ceil((double)attributeNames.size()/CHAR_BIT);
+    unsigned char* newNullIndicator=(unsigned char *) malloc(newNullIndicatorSize);
+    memset(newNullIndicator, 0, newNullIndicatorSize);
+    
+    int returnedDataOffset;
+    //cout<<"nullIndicatorSize: "<<nullIndicatorSize<<" newNullIndicatorSize: "<<newNullIndicatorSize<<endl;
+    int dataOffset=newNullIndicatorSize;
+    for(int i=0;i<attributeNames.size();i++){
+        returnedDataOffset=nullIndicatorSize;
+        for(int j=0;j<recordDescriptor.size();j++){
+            if(_attributeNames[i].compare(_recordDescriptor[j].name)==0){
+                if( nullIndicator[j/CHAR_BIT] & (1<< (7*nullIndicatorSize-(j%CHAR_BIT) ) )){
+                    newNullIndicator[i/CHAR_BIT]+=1<<(7-i%CHAR_BIT);
+                }
+                else{
+                    switch(recordDescriptor[j].type){
+                        case TypeInt:
+                            memcpy((char*)data+dataOffset,(char*)returnedData+returnedDataOffset,sizeof(int));
+                            dataOffset+=sizeof(int);
+                            //cout<<"dataOffset: "<<dataOffset<<endl;
+                            break;
+                        case TypeReal:
+                            memcpy((char*)data+dataOffset,(char*)returnedData+returnedDataOffset,sizeof(float));
+                            dataOffset+=sizeof(float);
+                            //cout<<"dataOffset: "<<dataOffset<<endl;
+                            break;
+                        case TypeVarChar:
+                            int length;
+                            memcpy( &length, (char*)returnedData+returnedDataOffset, sizeof(int));
+                            memcpy((char*)data+dataOffset,&length,sizeof(int));
+                            memcpy((char*)data+dataOffset+sizeof(int),(char*)returnedData+returnedDataOffset+sizeof(int),length);
+                            dataOffset+=sizeof(int)+length;
+                            //cout<<"dataOffset: "<<dataOffset<<endl;
+                            break;
+                    }
+                }
+            }
+            if(!( nullIndicator[j/CHAR_BIT] & (1<< (7-(j%CHAR_BIT) ) ))){
+                switch(recordDescriptor[j].type){
+                    case TypeInt:
+                        returnedDataOffset+=sizeof(int);
+                        //cout<<"returnedDataOffset: "<<returnedDataOffset<<endl;
+                        break;
+                    case TypeReal:
+                        returnedDataOffset+=sizeof(float);
+                        //cout<<"returnedDataOffset: "<<returnedDataOffset<<endl;
+                        break;
+                    case TypeVarChar:
+                        int length;
+                        memcpy( &length, (char*)returnedData+returnedDataOffset, sizeof(int));
+                        returnedDataOffset+=sizeof(int)+length;
+                        //cout<<"returnedDataOffset: "<<returnedDataOffset<<endl;
+                        break;
+                }
+            }
+        }
+    }
+    memcpy((char*)data,newNullIndicator,newNullIndicatorSize);
+    free(nullIndicator);
+    free(newNullIndicator);
+    
+    return 0;
+}

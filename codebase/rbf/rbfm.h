@@ -58,7 +58,7 @@ typedef struct
     int currDir;
 } DirPageInfo;
 // Comparison Operator (NOT needed for part 1 of the project)
-typedef enum { EQ_OP = 0, // no condition// = 
+typedef enum { EQ_OP = 0, // =
            LT_OP,      // <
            LE_OP,      // <=
            GT_OP,      // >
@@ -85,21 +85,32 @@ The scan iterator is NOT required to be implemented for the part 1 of the projec
 
 class RBFM_ScanIterator {
 public:
-  FileHandle fileHandle;
-  vector<Attribute> recordDescriptor;
-  string conditionAttribute;
-  CompOp compOp;                 // comparision type such as "<" and "="
-  char *value;                    // used in the comparison
-  vector<string> attributeNames; // a list of projected attributes
-    
   RBFM_ScanIterator() {};
   ~RBFM_ScanIterator() {};
 
   // Never keep the results in the memory. When getNextRecord() is called, 
   // a satisfying record needs to be fetched from the file.
   // "data" follows the same format as RecordBasedFileManager::insertRecord().
-  RC getNextRecord(RID &rid, void *data) { return RBFM_EOF; };
+  RC initialization(FileHandle &fileHandle,
+    const vector<Attribute> &recordDescriptor,
+    const string &conditionAttribute,
+    const CompOp compOp,                  // comparision type such as "<" and "="
+    const void *value,                    // used in the comparison
+    const vector<string> &attributeNames); // a list of projected attributes
+  RC getNextRecord(RID &rid, void *data); //{ return RBFM_EOF; };
   RC close() { return -1; };
+
+private:
+  FileHandle _fileHandle;
+  vector<Attribute> _recordDescriptor;
+  string _conditionAttribute;
+  CompOp _compOp;                 // comparision type such as "<" and "="
+  void *_value;                    // used in the comparison
+  vector<string> _attributeNames; // a list of projected attributes
+  RID _rid;
+  bool compare(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type);
+  bool compareVarChar(void* storedValue, const CompOp compOp, const void *valueToCompare);
+  RC writeIntoData(void *returnedData, const vector<Attribute> &recordDescriptor, const vector<string> &attributeNames, void *data);
 };
 
 

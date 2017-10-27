@@ -284,12 +284,15 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 			memcpy(&id, page+offset, sizeof(int));
 			cout << "id: " << id << endl;
 			offset += sizeof(int);
+            //cout<<"offset: "<<offset<<endl;
 			memcpy(&varcharLength, page+offset, sizeof(short));
 			cout << "varcharLength: " << varcharLength << endl;
 			offset += sizeof(short);
+            //cout<<"offset: "<<offset<<endl;
 			memcpy(&name, page+offset, varcharLength);
 			cout << "name in Tables: " << name << endl;
 			offset += varcharLength;
+            //cout<<"offset: "<<offset<<endl;
 			if(name.compare(tableName)==0)
 				break;
 			offset += varcharLength;
