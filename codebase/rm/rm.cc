@@ -527,8 +527,13 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
+	RC rc;
 	vector<Attribute> recordDescriptor;
-	rbf_manager->openFile(tableName, fileHandle);
+	rc = rbf_manager->openFile(tableName, fileHandle);
+	if(rc){
+		cout << "openFile in insertTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
 	getAttributes(tableName, recordDescriptor);
 	// test recordDescriptor
 	/*
@@ -536,9 +541,9 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
         cout << (i+1) << ". Attr Name: " << recordDescriptor[i].name << " Type: " << (AttrType) recordDescriptor[i].type << " Len: " << recordDescriptor[i].length << endl;
     }
     */
-	RC rc = rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
+	rc = rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
 	if(rc){
-		cout << "insertTuple in Table: " << tableName << "failed!" << endl;
+		cout << "insertRecord in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
 	rbf_manager->closeFile(fileHandle);
@@ -549,12 +554,17 @@ RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
+	RC rc;
 	vector<Attribute> recordDescriptor;
-	rbf_manager->openFile(tableName, fileHandle);
-	getAttributes(tableName, recordDescriptor);
-	RC rc = rbf_manager->deleteRecord(fileHandle, recordDescriptor, rid);
+	rc = rbf_manager->openFile(tableName, fileHandle);
 	if(rc){
-		cout << "deleteTuple in Table: " << tableName << "failed!" << endl;
+		cout << "openFile in deleteTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	getAttributes(tableName, recordDescriptor);
+	rc = rbf_manager->deleteRecord(fileHandle, recordDescriptor, rid);
+	if(rc){
+		cout << "deleteRecord in deleteTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     return 0;
@@ -564,12 +574,17 @@ RC RelationManager::updateTuple(const string &tableName, const void *data, const
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
+	RC rc;
 	vector<Attribute> recordDescriptor;
-	rbf_manager->openFile(tableName, fileHandle);
-	getAttributes(tableName, recordDescriptor);
-	RC rc = rbf_manager->updateRecord(fileHandle, recordDescriptor, data, rid);
+	rc = rbf_manager->openFile(tableName, fileHandle);
 	if(rc){
-		cout << "updateTuple in Table: " << tableName << "failed!" << endl;
+		cout << "openFile in updateTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	getAttributes(tableName, recordDescriptor);
+	rc = rbf_manager->updateRecord(fileHandle, recordDescriptor, data, rid);
+	if(rc){
+		cout << "updateRecord in updateTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     return 0;
@@ -579,12 +594,17 @@ RC RelationManager::readTuple(const string &tableName, const RID &rid, void *dat
 {
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle;
+	RC rc;
 	vector<Attribute> recordDescriptor;
-	rbf_manager->openFile(tableName, fileHandle);
-	getAttributes(tableName, recordDescriptor);
-	RC rc = rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
+	rc = rbf_manager->openFile(tableName, fileHandle);
 	if(rc){
-		cout << "readTuple in Table: " << tableName << endl;
+		cout << "openFile in readTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	getAttributes(tableName, recordDescriptor);
+	rc = rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
+	if(rc){
+		cout << "readRecord in readTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     return 0;
@@ -599,7 +619,22 @@ RC RelationManager::printTuple(const vector<Attribute> &attrs, const void *data)
 
 RC RelationManager::readAttribute(const string &tableName, const RID &rid, const string &attributeName, void *data)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	RC rc;
+	vector<Attribute> recordDescriptor;
+	rc = rbf_manager->openFile(tableName, fileHandle);
+	if(rc){
+		cout << "openFile in readAttribute in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	getAttributes(tableName, recordDescriptor);
+	rc = rbf_manager->readAttribute(fileHandle, recordDescriptor, rid, attributeName, data);
+	if(rc){
+		cout << "readAttribute in readAttribute in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+    return 0;
 }
 
 RC RelationManager::scan(const string &tableName,
