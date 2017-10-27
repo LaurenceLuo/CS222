@@ -232,7 +232,6 @@ int RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescrip
     int nullIndicatorSize=getNullIndicatorSize(recordDescriptor);
     char* nullIndicator=new char[nullIndicatorSize];
     memcpy(nullIndicator, data , nullIndicatorSize);
-    int offset=0;
     recordSize+=nullIndicatorSize;
     
     //_data+=nullIndicatorBytes;
@@ -716,24 +715,30 @@ RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const vector<At
     for(int i=0;i<recordDescriptor.size();i++)
         memcpy(&fieldOffset[i],record+sizeof(short)*i,sizeof(short));
     
+    int newNullIndicatorSize=ceil((double)1/CHAR_BIT);
+    unsigned char* newNullIndicator=(unsigned char *) malloc(newNullIndicatorSize);
+    memset(newNullIndicator, 0, newNullIndicatorSize);
     
     int offset=fieldTotalSize;
     for(int i=0;i<recordDescriptor.size();i++){
         if(fieldOffset[i]==fieldTotalSize){
-            //cout<<"NULL"<<endl;
+            newNullIndicator[i/CHAR_BIT]+=1<<(7-i%CHAR_BIT);
             break;
         }
         switch(recordDescriptor[i].type){
             case TypeInt:
                 if(recordDescriptor[i].name.compare(attributeName)==0){
-                    memcpy((int*)data,record+offset,sizeof(int));
+                    memcpy(data,newNullIndicator,newNullIndicatorSize);
+                    memcpy((char*)data+newNullIndicatorSize,record+offset,sizeof(int));
+                    //cout<<"DATA: "<<*(int*)data<<endl;
                     return 0;
                 }
                 offset+=sizeof(int);
                 break;
             case TypeReal:
                 if(recordDescriptor[i].name.compare(attributeName)==0){
-                    memcpy((float*)data,record+offset,sizeof(float));
+                    memcpy(data,newNullIndicator,newNullIndicatorSize);
+                    memcpy((char*)data+newNullIndicatorSize,record+offset,sizeof(float));
                     return 0;
                 }
                 offset+=sizeof(float);
@@ -742,7 +747,8 @@ RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const vector<At
                 int length;
                 memcpy( &length, record+offset, sizeof(int));
                 if(recordDescriptor[i].name.compare(attributeName)==0){
-                    memcpy((char*)data,record+offset+sizeof(int),length);
+                    memcpy(data,newNullIndicator,newNullIndicatorSize);
+                    memcpy((char*)data+newNullIndicatorSize,record+offset+sizeof(int),length);
                     return 0;
                 }
                 offset+=sizeof(int);
