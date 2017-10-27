@@ -432,16 +432,9 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 			memcpy(&id, page+offset, sizeof(int));
 			//cout << "id: " << id << endl;
 			offset += sizeof(int);
-            //cout<<"offset: "<<offset<<endl;
 			memcpy(&varcharLength, page+offset, sizeof(short));
 			//cout << "varcharLength: " << varcharLength << endl;
 			offset += sizeof(short);
-            //cout<<"offset: "<<offset<<endl;
-			memcpy(&name, page+offset, varcharLength);
-			cout << "name in Tables: " << name << endl;
-			offset += varcharLength;
-            //cout<<"offset: "<<offset<<endl;
-			if(name.compare(tableName)==0)
 			name = new char[varcharLength];
 			memcpy(name, page+offset, varcharLength);
 			//cout << "tableName in Tables: " << name << endl;
@@ -537,7 +530,12 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 	vector<Attribute> recordDescriptor;
 	rbf_manager->openFile(tableName, fileHandle);
 	getAttributes(tableName, recordDescriptor);
+	// test recordDescriptor
+    for(unsigned i = 0; i < recordDescriptor.size(); i++){
+        cout << (i+1) << ". Attr Name: " << recordDescriptor[i].name << " Type: " << (AttrType) recordDescriptor[i].type << " Len: " << recordDescriptor[i].length << endl;
+    }
 	rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
+	rbf_manager->closeFile(fileHandle);
     return 0;
 }
 
