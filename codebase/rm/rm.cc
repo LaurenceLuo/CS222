@@ -644,7 +644,23 @@ RC RelationManager::scan(const string &tableName,
       const vector<string> &attributeNames,
       RM_ScanIterator &rm_ScanIterator)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	RC rc;
+	vector<Attribute> recordDescriptor;
+	rc = rbf_manager->openFile(tableName, fileHandle);
+	if(rc){
+		cout << "openFile in scan in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	getAttributes(tableName, recordDescriptor);
+
+	rc = rbf_manager->scan(fileHandle, recordDescriptor, conditionAttribute, compOp, value, attributeNames, rm_ScanIterator.rbfm_iterator);
+	if(rc){
+		cout << "scan in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+    return 0;
 }
 
 // Extra credit work
