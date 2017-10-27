@@ -531,9 +531,11 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 	rbf_manager->openFile(tableName, fileHandle);
 	getAttributes(tableName, recordDescriptor);
 	// test recordDescriptor
+	/*
     for(unsigned i = 0; i < recordDescriptor.size(); i++){
         cout << (i+1) << ". Attr Name: " << recordDescriptor[i].name << " Type: " << (AttrType) recordDescriptor[i].type << " Len: " << recordDescriptor[i].length << endl;
     }
+    */
 	rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
 	rbf_manager->closeFile(fileHandle);
     return 0;
