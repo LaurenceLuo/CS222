@@ -536,19 +536,43 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
         cout << (i+1) << ". Attr Name: " << recordDescriptor[i].name << " Type: " << (AttrType) recordDescriptor[i].type << " Len: " << recordDescriptor[i].length << endl;
     }
     */
-	rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
+	RC rc = rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
+	if(rc){
+		cout << "insertTuple in Table: " << tableName << "failed!" << endl;
+		return -1;
+	}
 	rbf_manager->closeFile(fileHandle);
     return 0;
 }
 
 RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	vector<Attribute> recordDescriptor;
+	rbf_manager->openFile(tableName, fileHandle);
+	getAttributes(tableName, recordDescriptor);
+	RC rc = rbf_manager->deleteRecord(fileHandle, recordDescriptor, rid);
+	if(rc){
+		cout << "deleteTuple in Table: " << tableName << "failed!" << endl;
+		return -1;
+	}
+    return 0;
 }
 
 RC RelationManager::updateTuple(const string &tableName, const void *data, const RID &rid)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	FileHandle fileHandle;
+	vector<Attribute> recordDescriptor;
+	rbf_manager->openFile(tableName, fileHandle);
+	getAttributes(tableName, recordDescriptor);
+	RC rc = rbf_manager->updateRecord(fileHandle, recordDescriptor, data, rid);
+	if(rc){
+		cout << "updateTuple in Table: " << tableName << "failed!" << endl;
+		return -1;
+	}
+    return 0;
 }
 
 RC RelationManager::readTuple(const string &tableName, const RID &rid, void *data)
@@ -558,7 +582,11 @@ RC RelationManager::readTuple(const string &tableName, const RID &rid, void *dat
 	vector<Attribute> recordDescriptor;
 	rbf_manager->openFile(tableName, fileHandle);
 	getAttributes(tableName, recordDescriptor);
-	rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
+	RC rc = rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
+	if(rc){
+		cout << "readTuple in Table: " << tableName << endl;
+		return -1;
+	}
     return 0;
 }
 
