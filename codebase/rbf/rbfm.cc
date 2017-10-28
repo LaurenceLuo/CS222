@@ -121,7 +121,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
             }
             slotIndex++;
         }
-        
+        delete []slots;
         //slot.offset=dirDescription.freeSpacePointer;
         memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(slotIndex+1),&slot,sizeof(Slot));
         memcpy(page+dirDescription.freeSpacePointer, formattedRecord, formattedRecordSize);
@@ -156,13 +156,13 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
     memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
     Slot slot;
     memcpy(&slot,page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(rid.slotNum+1),sizeof(Slot));
-    
-    //cout<<"slot.offset: "<<slot.offset<<endl;
+    //cout<<"rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
+    //cout<<"slot.offset: "<<slot.offset<<" slot.length: "<<slot.length<<endl;
     if(slot.length==DELETE_MARK){
         cout<<"Record been deleted!"<<endl;
         return -1;
     }
-    
+    //cout<<"Here??"<<endl;
     if(slot.length==TOMBSTONE){
         cout<<"read TOMBSTONE encountered!"<<endl;
         RID nextRid;
@@ -200,7 +200,8 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
     delete []page;
     delete []oldData;
     delete []formattedRecord;
-
+    free(nullIndicator);
+    
     return 0;
 }
 
@@ -356,6 +357,9 @@ int RecordBasedFileManager::getFreePage(FileHandle &fileHandle, int formattedRec
                 delete []page;
 
                 return pageNum;
+            }
+            else{
+                delete []directory;
             }
         }
         dirIndex++;
