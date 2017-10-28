@@ -575,8 +575,11 @@ RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
 		cout << "openFile in deleteTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
+	//cout << "openFile suc in deleteTuple!" << endl;
 	getAttributes(tableName, recordDescriptor);
+	//cout << "getAttr suc in deleteTuple!" << endl;
 	rc = rbf_manager->deleteRecord(fileHandle, recordDescriptor, rid);
+	//cout << "delete suc!" << endl;
 	if(rc){
 		cout << "deleteRecord in deleteTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
@@ -626,9 +629,14 @@ RC RelationManager::readTuple(const string &tableName, const RID &rid, void *dat
 		cout << "openFile in readTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
-	//cout << tableName << endl;
+	cout << tableName << endl;
 	getAttributes(tableName, recordDescriptor);
 	//cout << "getAttributes success" << endl;
+    for(unsigned i = 0; i < recordDescriptor.size(); i++)
+    {
+        cout << (i+1) << ". Attr Name: " << recordDescriptor[i].name << " Type: " << (AttrType) recordDescriptor[i].type << " Len: " << recordDescriptor[i].length << endl;
+    }
+
 	rc = rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
 	if(rc){
 		cout << "readRecord in readTuple in Table: " << tableName << " failed!" << endl;
