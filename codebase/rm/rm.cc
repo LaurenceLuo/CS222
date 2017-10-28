@@ -415,34 +415,41 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 	short varcharLength;
 	char* name = NULL;
 	const char* TableName = tableName.c_str();
+
 	rbf_manager->openFile("Tables", tableFileHandle);
 
-	char* page = NULL;
 	// find tableName is in which page of "Tables" and its table_id
 	//cout << "tableFileHandle.getNumberOfPages: " << tableFileHandle.getNumberOfPages() << endl;
 	//cout << "tableName: " << tableName << endl;
 	for(int pageNum=1; pageNum<=tableFileHandle.getNumberOfPages(); pageNum++){
-		page = new char[PAGE_SIZE];
+		char* tablePage = NULL;
+		tablePage = new char[PAGE_SIZE];
 		//cout << "pageNum: " << pageNum << endl;
-		if(tableFileHandle.readPage(pageNum,page)!=0){
+		if(tableFileHandle.readPage(pageNum,tablePage)!=0){
 			cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
 		}
 		offset = 0;
 		// Find table id by "Tables"
 		while(true){
-			memcpy(&id, page+offset, sizeof(int));
+			memcpy(&id, tablePage+offset, sizeof(int));
 			//cout << "id: " << id << endl;
 			offset += sizeof(int);
-			memcpy(&varcharLength, page+offset, sizeof(short));
+			memcpy(&varcharLength, tablePage+offset, sizeof(short));
 			//cout << "varcharLength: " << varcharLength << endl;
 			offset += sizeof(short);
+			name = NULL;
 			name = new char[varcharLength];
-			memcpy(name, page+offset, varcharLength);
-			cout << "tableName in Tables: " << name << endl;
+			memcpy(name, tablePage+offset, varcharLength);
+			string str_name = name;
+			//cout << "strName: " << str_name << endl;
+			//cout << "tableName in Tables: " << name << "," << TableName << endl;
+			//cout << name << endl;
 			offset += varcharLength;
-			if(strcmp(name, TableName)==0)
+			//cout << "cmp: " << memcmp(name, TableName, tableName.length()) << endl;
+			if(memcmp(name, TableName, tableName.length())==0){
 				break;
+			}
 			offset += varcharLength;
 			name = NULL;
 			delete []name;
@@ -450,19 +457,19 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 			if(offset > PAGE_SIZE-sizeof(DirDescription))
 				break;
 		}
-		if(strcmp(name, TableName)==0){
-			page = NULL;
-			delete []page;
+		if(memcmp(name, TableName, tableName.length())==0){
+			tablePage = NULL;
+			delete []tablePage;
 			name = NULL;
 			delete []name;
 			break;
 		}
-		page = NULL;
-		delete []page;
+		tablePage = NULL;
+		delete []tablePage;
 	}
 	rbf_manager->closeFile(tableFileHandle);
 
-
+	//id=6;
     // Find attrs by "Columns"
     rbf_manager->openFile("Columns", colFileHandle);
     char* colPage = NULL;
@@ -493,17 +500,18 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		delete []colPage;
     }
 	// find attrs
-    char* attrName = NULL;
+
     int pos;
 	while(findID==id){
+		char* attrName = NULL;
+		attrName = new char[varcharLength];
 		memcpy(&varcharLength, colPage+offset, sizeof(short));
 		//cout << "varcharLength: " << varcharLength << endl;
 		offset += sizeof(short);
-		attrName = new char[varcharLength];
 		memcpy(attrName, colPage+offset, varcharLength);
 		//cout << "attrName: " << attrName << endl;
 		attr.name = attrName;
-		attrName = NULL;
+		attrName=NULL;
 		delete []attrName;
 		//cout << "name: " << attr.name << endl;
 		offset += varcharLength;
@@ -548,7 +556,11 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 		cout << "insertRecord in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
-	rbf_manager->closeFile(fileHandle);
+	rc = rbf_manager->closeFile(fileHandle);
+	if(rc){
+		cout << "closeFile in insertTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
     return 0;
 }
 
@@ -567,6 +579,11 @@ RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
 	rc = rbf_manager->deleteRecord(fileHandle, recordDescriptor, rid);
 	if(rc){
 		cout << "deleteRecord in deleteTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	rc = rbf_manager->closeFile(fileHandle);
+	if(rc){
+		cout << "closeFile in deleteTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     return 0;
@@ -589,6 +606,11 @@ RC RelationManager::updateTuple(const string &tableName, const void *data, const
 		cout << "updateRecord in updateTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
+	rc = rbf_manager->closeFile(fileHandle);
+	if(rc){
+		cout << "closeFile in updateTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
     return 0;
 }
 
@@ -599,14 +621,23 @@ RC RelationManager::readTuple(const string &tableName, const RID &rid, void *dat
 	RC rc;
 	vector<Attribute> recordDescriptor;
 	rc = rbf_manager->openFile(tableName, fileHandle);
+	//cout << "open RM success" << endl;
 	if(rc){
 		cout << "openFile in readTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
+	//cout << tableName << endl;
 	getAttributes(tableName, recordDescriptor);
+	//cout << "getAttributes success" << endl;
 	rc = rbf_manager->readRecord(fileHandle, recordDescriptor, rid, data);
 	if(rc){
 		cout << "readRecord in readTuple in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	//cout << "read RM success" << endl;
+	rc = rbf_manager->closeFile(fileHandle);
+	if(rc){
+		cout << "closeFile in readTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     return 0;
@@ -636,6 +667,11 @@ RC RelationManager::readAttribute(const string &tableName, const RID &rid, const
 		cout << "readAttribute in readAttribute in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
+	rc = rbf_manager->closeFile(fileHandle);
+	if(rc){
+		cout << "closeFile in readAttribute in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
     return 0;
 }
 
@@ -660,6 +696,11 @@ RC RelationManager::scan(const string &tableName,
 	rc = rbf_manager->scan(fileHandle, recordDescriptor, conditionAttribute, compOp, value, attributeNames, rm_ScanIterator.rbfm_iterator);
 	if(rc){
 		cout << "scan in Table: " << tableName << " failed!" << endl;
+		return -1;
+	}
+	rc = rbf_manager->closeFile(fileHandle);
+	if(rc){
+		cout << "closeFile in readTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     return 0;
