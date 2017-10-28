@@ -706,11 +706,6 @@ RC RelationManager::scan(const string &tableName,
 		cout << "scan in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
-	rc = rbf_manager->closeFile(fileHandle);
-	if(rc){
-		cout << "closeFile in readTuple in Table: " << tableName << " failed!" << endl;
-		return -1;
-	}
     return 0;
 }
 
