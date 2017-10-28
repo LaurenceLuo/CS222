@@ -474,11 +474,13 @@ RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Att
     //cout<<"rid.slotNum.length: "<<slots[rid.slotNum].length<<endl;
     //int recordSize=slots[rid.slotNum].length;
 
+    //int lengthToShift=0;
     for(int i=0;i<dirDescription.slotCount;i++){
         if(slots[i].offset>slots[rid.slotNum].offset){
             slots[i].offset-=slots[rid.slotNum].length;
             memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(i+1),&slots[i],sizeof(Slot));
             //cout << "slot.length: " << slots[i].length << endl;
+            //lengthToShift+=slots[i].length;
         }
     }
 
@@ -560,6 +562,10 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
         return updateRecord(fileHandle,recordDescriptor,data,nextRid);
     }
     
+    int lengthToShift=0;
+    lengthToShift = dirDescription.freeSpacePointer - (slots[rid.slotNum].offset + slots[rid.slotNum].length);
+    cout << "lengthToShift: " << lengthToShift << endl;
+
     char* formattedNewRecord;//to delete
     int newRecordSize=formatRecord(recordDescriptor,data,formattedNewRecord);
     int sizeDiff=slots[rid.slotNum].length-newRecordSize;
@@ -574,12 +580,13 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
     else if(sizeDiff>0){
         //cout<<"CASE2!!!!!"<<endl;
         int sizeDiff=slots[rid.slotNum].length-newRecordSize;
-        int lengthToShift=0;
+        //int lengthToShift=0;
+        //lengthToShift = dirDescription.freeSpacePointer - (slots[rid.slotNum].offset + slots[rid.slotNum].length);
         for(int i=0;i<dirDescription.slotCount;i++){
             if(slots[i].offset>slots[rid.slotNum].offset){
                 slots[i].offset-=sizeDiff;
                 memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(i+1),&slots[i],sizeof(Slot));
-                lengthToShift+=slots[i].length;
+                //lengthToShift+=slots[i].length;
             }
         }
         
@@ -612,12 +619,13 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
         if(PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*dirDescription.slotCount>sizeDiff){//enough space for larger record
             //cout<<"CASE3!!!!!"<<endl;
 
-            int lengthToShift=0;//shift forward
+            //int lengthToShift=0;//shift forward
+            //lengthToShift = dirDescription.freeSpacePointer - (slots[rid.slotNum].offset + slots[rid.slotNum].length);
             for(int i=0;i<dirDescription.slotCount;i++){
                 if(slots[i].offset>slots[rid.slotNum].offset){
                     slots[i].offset+=sizeDiff;
                     memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(i+1),&slots[i],sizeof(Slot));
-                    lengthToShift+=slots[i].length;
+                    //lengthToShift+=slots[i].length;
                 }
             }
 
@@ -658,12 +666,13 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
             }
             //cout<<"New pageNum: "<<newRid.pageNum<<", slotNum: "<<newRid.slotNum<<endl;
             int lengthDiff=slots[rid.slotNum].length-sizeof(RID);
-            int lengthToShift=0;
+            //int lengthToShift=0;
+            //lengthToShift = dirDescription.freeSpacePointer - (slots[rid.slotNum].offset + slots[rid.slotNum].length);
             for(int i=0;i<dirDescription.slotCount;i++){
                 if(slots[i].offset>slots[rid.slotNum].offset){
                     slots[i].offset-=lengthDiff;
                     memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(i+1),&slots[i],sizeof(Slot));
-                    lengthToShift+=slots[i].length;
+                    //lengthToShift+=slots[i].length;
                 }
             }
             
