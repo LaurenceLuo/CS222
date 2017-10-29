@@ -98,7 +98,7 @@ public:
     const void *value,                    // used in the comparison
     const vector<string> &attributeNames); // a list of projected attributes
   RC getNextRecord(RID &rid, void *data); //{ return RBFM_EOF; };
-  RC close() { return -1; };
+  RC close(); //{ return -1; };
 
 private:
   FileHandle _fileHandle;

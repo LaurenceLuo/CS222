@@ -340,11 +340,11 @@ int RecordBasedFileManager::getFreePage(FileHandle &fileHandle, int formattedRec
     int dirIndex=0;
     int nextDir=1;
     char* page=new char[PAGE_SIZE];
+    //cout<<"fileHandle.getNumberOfPages: "<<fileHandle.getNumberOfPages()<<endl;
     if(fileHandle.readPage(dirIndex,page)!=0){
         cout<<"read page from getFreePage fail!"<<endl;
         return -1;
     }
-    
     while(true){
         for(int i=1;i<DIR_NUM;i++){
             char *directory=new char[sizeof(Directory)];
@@ -1065,5 +1065,11 @@ RC RBFM_ScanIterator::writeIntoData(void *returnedData, const vector<Attribute> 
     free(nullIndicator);
     free(newNullIndicator);
 
+    return 0;
+}
+
+RC RBFM_ScanIterator::close(){
+    if((char*)_value)
+        delete (char*)_value;
     return 0;
 }
