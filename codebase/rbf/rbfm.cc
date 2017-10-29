@@ -125,12 +125,13 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         //slot.offset=dirDescription.freeSpacePointer;
         memcpy(page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(slotIndex+1),&slot,sizeof(Slot));
         memcpy(page+dirDescription.freeSpacePointer, formattedRecord, formattedRecordSize);
-
+        //cout<<"pageNum: "<<rid.pageNum<<" slotCount: "<<slotIndex+1<<endl;
         
         //update DirDescription
         rid.slotNum=slotIndex;
         dirDescription.slotCount++;
         dirDescription.freeSpacePointer+=formattedRecordSize;
+        //cout<<"formattedRecord.size: "<<formattedRecordSize<<" freeSpacePointer: "<<dirDescription.freeSpacePointer<<endl;
         memcpy(page+PAGE_SIZE-sizeof(DirDescription),&dirDescription,sizeof(DirDescription));
         if(fileHandle.writePage(rid.pageNum,page)!=0){
             cout<<"writePage from insertRecord fail!"<<endl;
@@ -138,8 +139,6 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         }
         //cout<<"pageNumWrite: "<<rid.pageNum<<" slotNumWrite: "<<rid.slotNum<<endl;
     }
-    //cout<<"rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
-        //delete not implemented yet;
     delete []page;
     delete []formattedRecord;
 
@@ -167,9 +166,11 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
         cout<<"read TOMBSTONE encountered!"<<endl;
         RID nextRid;
         memcpy(&nextRid,page+slot.offset,sizeof(RID));
+        //cout<<"next RID.pageNum: "<<nextRid.pageNum<<" slotNum: "<<nextRid.slotNum<<endl;
         //cout<<"New pageNum: "<<nextRid.pageNum<<", slotNum: "<<nextRid.slotNum<<endl;
         return readRecord(fileHandle,recordDescriptor,nextRid,data);
     }
+    //cout<<"RecordLength: "<<slot.length<<endl;
     int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
     int fieldTotalSize=sizeof(short)+fieldOffsetSize;
     int dataSize=slot.length-fieldTotalSize;
@@ -348,9 +349,10 @@ int RecordBasedFileManager::getFreePage(FileHandle &fileHandle, int formattedRec
         for(int i=1;i<DIR_NUM;i++){
             char *directory=new char[sizeof(Directory)];
             memcpy(directory,page+i*sizeof(Directory),sizeof(Directory));
-            if(((Directory*)directory)->freeSpace >= formattedRecordSize+sizeof(Slot)+sizeof(char)){
+            if(((Directory*)directory)->freeSpace >= formattedRecordSize+sizeof(Slot)){
                 int pageNum=((Directory*)directory)->pageNum;
-                ((Directory*)directory)->freeSpace-=(formattedRecordSize+sizeof(Slot)+sizeof(char));
+                //cout<<"Found free page: "<<pageNum<<" FreeSpace: "<<((Directory*)directory)->freeSpace<<" RecordSize: "<<formattedRecordSize<<endl;
+                ((Directory*)directory)->freeSpace-=(formattedRecordSize+sizeof(Slot));
                 memcpy(page+i*sizeof(Directory),directory,sizeof(Directory));
                 fileHandle.writePage(dirIndex*DIR_NUM,page);
                 delete []directory;
@@ -500,7 +502,8 @@ RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Att
     //cout<<"freeSpacePointer: "<<dirDescription.freeSpacePointer<<endl;
     
     //Update Directory Page
-    if(updateDirectoryPage(fileHandle,rid,slots[rid.slotNum].length)!=0){
+    int freeSpace=PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*(dirDescription.slotCount);
+    if(updateDirectoryPage(fileHandle,rid,freeSpace)!=0){
         cout<<"Update Directory Page fail!"<<endl;
         return -1;
     }
@@ -519,17 +522,21 @@ RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Att
     return 0;
 }
 
-RC RecordBasedFileManager::updateDirectoryPage(FileHandle &fileHandle, const RID &rid, short spaceToAdd){
+RC RecordBasedFileManager::updateDirectoryPage(FileHandle &fileHandle, const RID &rid, int freeSpace){
     char* dirPage=new char[PAGE_SIZE];
-    if(fileHandle.readPage(rid.pageNum/DIR_NUM,dirPage)!=0){
+    if(fileHandle.readPage(((int)rid.pageNum)/(int)(DIR_NUM),dirPage)!=0){
         cout<<"Read Directory Page from deleteRecord fail!"<<endl;
         return -1;
     }
     Directory directory;
-    memcpy(&directory,dirPage+(rid.pageNum%DIR_NUM)*sizeof(Directory),sizeof(Directory));
-    directory.freeSpace+=spaceToAdd;
-    memcpy(dirPage+(rid.pageNum%DIR_NUM)*sizeof(Directory),&directory,sizeof(Directory));
-    if(fileHandle.writePage((rid.pageNum/DIR_NUM)*DIR_NUM,dirPage)!=0){
+    //((int)rid.pageNum)/((int)(DIR_NUM))*((int)(DIR_NUM))
+    //cout<<"pageNum/DIR_NUM: "<<((int)rid.pageNum)/(int)(DIR_NUM)<<" 1%512: "<<1%512<<endl;
+    memcpy(&directory,dirPage+(((int)rid.pageNum)%(int)(DIR_NUM))*sizeof(Directory),sizeof(Directory));
+    //cout<<"pageNum: "<<rid.pageNum<<" oldFreeSpace: "<<directory.freeSpace<<endl;
+    directory.freeSpace=freeSpace;
+    //cout<<"pageNum: "<<rid.pageNum<<" newFreeSpace: "<<directory.freeSpace<<endl;
+    memcpy(dirPage+(((int)rid.pageNum)%((int)(DIR_NUM)))*sizeof(Directory),&directory,sizeof(Directory));
+    if(fileHandle.writePage(((int)rid.pageNum)/((int)(DIR_NUM))*((int)(DIR_NUM)),dirPage)!=0){
         cout<<"Write Directory Page from deleteRecord fail!"<<endl;
         return -1;
     }
@@ -564,7 +571,7 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
     
     int lengthToShift=0;
     lengthToShift = dirDescription.freeSpacePointer - (slots[rid.slotNum].offset + slots[rid.slotNum].length);
-    cout << "lengthToShift: " << lengthToShift << endl;
+    //cout << "slots[rid.slotNum].length: " << slots[rid.slotNum].length << endl;
 
     char* formattedNewRecord;//to delete
     int newRecordSize=formatRecord(recordDescriptor,data,formattedNewRecord);
@@ -579,7 +586,7 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
     }
     else if(sizeDiff>0){
         //cout<<"CASE2!!!!!"<<endl;
-        int sizeDiff=slots[rid.slotNum].length-newRecordSize;
+        //int sizeDiff=slots[rid.slotNum].length-newRecordSize;
         //int lengthToShift=0;
         //lengthToShift = dirDescription.freeSpacePointer - (slots[rid.slotNum].offset + slots[rid.slotNum].length);
         for(int i=0;i<dirDescription.slotCount;i++){
@@ -601,7 +608,8 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
         memcpy(page+slots[rid.slotNum].offset,formattedNewRecord,newRecordSize);
         
         //Update Directory Page
-        if(updateDirectoryPage(fileHandle,rid,sizeDiff)!=0){
+        int freeSpace=PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*(dirDescription.slotCount);
+        if(updateDirectoryPage(fileHandle,rid,freeSpace)!=0){
             cout<<"Update Directory Page fail!"<<endl;
             return -1;
         }
@@ -616,7 +624,9 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
     }
     else{
         sizeDiff*=-1;
-        if(PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*dirDescription.slotCount>sizeDiff){//enough space for larger record
+        if(PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*(dirDescription.slotCount+1)>sizeDiff){//enough space for larger record
+            //cout<<endl<<"FreeSpacePointer: "<<dirDescription.freeSpacePointer<<" dirDescription.slotCount: "<<dirDescription.slotCount<<" slots[rid.slotNum].length: "<<slots[rid.slotNum].length<<endl;
+
             //cout<<"CASE3!!!!!"<<endl;
 
             //int lengthToShift=0;//shift forward
@@ -642,7 +652,8 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
             memcpy(page+slots[rid.slotNum].offset,formattedNewRecord,newRecordSize);
             
             //Update Directory Page
-            if(updateDirectoryPage(fileHandle,rid,sizeDiff)!=0){
+            int freeSpace=PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*(dirDescription.slotCount);
+            if(updateDirectoryPage(fileHandle,rid,freeSpace)!=0){
                 cout<<"Update Directory Page fail!"<<endl;
                 return -1;
             }
@@ -687,7 +698,8 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
             //memcpy(page+slots[rid.slotNum].offset,formattedNewRecord,newRecordSize);
             
             //Update Directory Page
-            if(updateDirectoryPage(fileHandle,rid,lengthDiff)!=0){
+            int freeSpace=PAGE_SIZE-dirDescription.freeSpacePointer-sizeof(DirDescription)-sizeof(Slot)*(dirDescription.slotCount);
+            if(updateDirectoryPage(fileHandle,rid,freeSpace)!=0){
                 cout<<"Update Directory Page fail!"<<endl;
                 return -1;
             }
@@ -702,10 +714,9 @@ RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Att
                 cout<<"Write Page from deleteRecord fail!"<<endl;
                 return -1;
             }
-
+            //cout<<"Update to RID.pageNum: "<<newRid.pageNum<<" slotNum: "<<newRid.slotNum<<endl;
         }
     }
-    
     delete []formattedNewRecord;
     delete []slots;
     delete []page;
