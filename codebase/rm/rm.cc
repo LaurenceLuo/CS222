@@ -321,7 +321,7 @@ RC RelationManager::deleteTable(const string &tableName)
 			memcpy(name, tablePage+offset, varcharLength);
 			//cout << "tableName in Tables: " << name << endl;
 			offset += varcharLength;
-			if(strcmp(name, TableName)==0)
+			if(memcmp(name, TableName, tableName.length())==0)
 				break;
 			offset += varcharLength;
 			name = NULL;
@@ -331,7 +331,7 @@ RC RelationManager::deleteTable(const string &tableName)
 				break;
 		}
 		// delete record in "Tables" and shift
-		if(strcmp(name, TableName)==0){
+		if(memcmp(name, TableName, tableName.length())==0){
 			memcpy(&dirDescription, tablePage+PAGE_SIZE-sizeof(DirDescription), sizeof(DirDescription));
 			beginOffset = offset - (varcharLength+sizeof(short)+sizeof(int));
 			offset += varcharLength;
@@ -341,7 +341,6 @@ RC RelationManager::deleteTable(const string &tableName)
 			memcpy(shiftContent, tablePage+offset, shiftLength);
 			memcpy(tablePage+beginOffset, shiftContent, shiftLength);
 			dirDescription.freeSpacePointer -= recordSize;
-			dirDescription.slotCount -= 1;
 			memcpy(tablePage+dirDescription.freeSpacePointer, &stop, sizeof(int));
 			memcpy(tablePage+PAGE_SIZE-sizeof(DirDescription), &dirDescription, sizeof(DirDescription));
 			tableFileHandle.writePage(pageNum, tablePage);
@@ -456,8 +455,8 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 	for(int pageNum=1; pageNum<=tableFileHandle.getNumberOfPages(); pageNum++){
 		char* tablePage = NULL;
 		tablePage = new char[PAGE_SIZE];
-		//cout << "pageNum: " << pageNum << endl;
 		if(tableFileHandle.readPage(pageNum,tablePage)!=0){
+			cout << "pageNum: " << pageNum << endl;
 			cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
 		}
@@ -501,13 +500,13 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 	}
 	rbf_manager->closeFile(tableFileHandle);
 
-	//id=6;
     // Find attrs by "Columns"
     rbf_manager->openFile("Columns", colFileHandle);
     char* colPage = NULL;
     for(int pageNum=1; pageNum<=colFileHandle.getNumberOfPages(); pageNum++){
     		colPage = new char[PAGE_SIZE];
 		if(colFileHandle.readPage(pageNum,colPage)!=0){
+			cout << "pageNum: " << pageNum << endl;
 			cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
 		}
