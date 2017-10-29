@@ -9,7 +9,7 @@ RelationManager* RelationManager::instance()
 
 RelationManager::RelationManager()
 {
-	table_id = 1;
+
 }
 
 RelationManager::~RelationManager()
@@ -22,7 +22,7 @@ RC RelationManager::createCatalog()
 	FileHandle tableFileHandle, colFileHandle;
 	DirDescription dirDescription;
 	RC rc;
-	dirDescription.slotCount = 0;
+	dirDescription.slotCount = 1;
 	dirDescription.freeSpacePointer = 0;
 	int pageNum = 1;
 	string tableName = "Tables";
@@ -36,22 +36,19 @@ RC RelationManager::createCatalog()
 	page = new char[PAGE_SIZE];
 	memcpy(page+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	tableFileHandle.appendPage(page);
+	//tableFileHandle.getNumberOfPages();
 	//cout << "new getNumberOfPages: " << tableFileHandle.getNumberOfPages() << endl;
+	// Insert the Tables amd Columns tuple to "Tables"
+	rc = insertTableTuple(tableFileHandle, tableName, pageNum);
+	rc = insertTableTuple(tableFileHandle, colName, pageNum);
 	rbf_manager->closeFile(tableFileHandle);
 	page = NULL;
 	delete []page;
 
-	// Insert the tuple of "Tables" and "Columns" to "Tables"
-	rbf_manager->openFile(tableName, tableFileHandle);
-	rc = insertTableTuple(tableFileHandle, tableName, pageNum);
-	table_id = 2;
-	rc = insertTableTuple(tableFileHandle, colName, pageNum);
-	rbf_manager->closeFile(tableFileHandle);
-
 	// Create table "Columns"
 	rbf_manager->createFile(colName);
 	rbf_manager->openFile(colName, colFileHandle);
-	dirDescription.slotCount = 0;
+	dirDescription.slotCount = 1;
 	dirDescription.freeSpacePointer = 0;
 	char *colPage = NULL;
 	colPage = new char[PAGE_SIZE];
@@ -81,7 +78,6 @@ RC RelationManager::createCatalog()
 	tableAttrs.push_back(attr);
 
 	rbf_manager->openFile(colName, colFileHandle);
-	table_id = 1;
 	for(int pos=1; pos<=tableAttrs.size(); pos++){
 		rc = insertColTuple(colFileHandle, tableAttrs[pos-1], pageNum, pos);
 	}
@@ -115,13 +111,22 @@ RC RelationManager::createCatalog()
 	colAttrs.push_back(attr);
 
 	rbf_manager->openFile(colName, colFileHandle);
-	table_id = 2;
+	//table_id = 2;
+	dirDescription.slotCount = 2;
+	colPage = new char[PAGE_SIZE];
+	colFileHandle.readPage(1, colPage);
+	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
+	colFileHandle.writePage(1, colPage);
+
 	for(int pos=1; pos<=colAttrs.size(); pos++){
 		rc = insertColTuple(colFileHandle, colAttrs[pos-1], pageNum, pos);
 	}
+	dirDescription.slotCount++;
+	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
+	colFileHandle.writePage(1, colPage);
 	rbf_manager->closeFile(colFileHandle);
 
-	table_id++;
+	//table_id++;
 
     return 0;
 }
@@ -157,7 +162,8 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 	short tableSize = sizeof(int) + sizeof(short) + tableName.length()*2;
 	const char* name = tableName.c_str();
 
-	//cout << "table_id: " << table_id << endl;
+	//cout << "table_id: " << dirDescription.slotCount << endl;
+	int table_id = (int)dirDescription.slotCount;
 	memcpy(page+dirDescription.freeSpacePointer, &table_id, sizeof(int));
 	short length = tableName.size();
 	//cout << "length: " << length << endl;
@@ -198,6 +204,8 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	const char* attrName = attr.name.c_str();
 	//cout << "attrName: " << attrName << endl;
 
+	//cout << "table_id: " << dirDescription.slotCount << endl;
+	int table_id = (int)dirDescription.slotCount;
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &table_id, sizeof(int));
 	colSize += sizeof(int);
 	varcharLength = attr.name.length();
@@ -216,7 +224,7 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	colSize += sizeof(int);
 
 	// update dirDescription
-	dirDescription.slotCount++;
+	//dirDescription.slotCount++;
 	dirDescription.freeSpacePointer += colSize;
 	memcpy(page+PAGE_SIZE-sizeof(DirDescription), &dirDescription, sizeof(DirDescription));
 	fileHandle.writePage(pageNum,page);
@@ -239,6 +247,7 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle fileHandle, tableFileHandle, colFileHandle;
 	RC rc;
+	DirDescription dirDescription;
 	rbf_manager->createFile(tableName);
 
 	int tableSize;
@@ -263,8 +272,17 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	for(int pos=1; pos<=attrs.size(); pos++){
 		rc = insertColTuple(colFileHandle, attrs[pos-1], pageNum, pos);
 	}
+	// update table id
+	char *colPage = NULL;
+	colPage = new char[PAGE_SIZE];
+	colFileHandle.readPage(pageNum, colPage);
+	memcpy(&dirDescription, colPage+PAGE_SIZE-sizeof(DirDescription), sizeof(DirDescription));
+	dirDescription.slotCount ++;
+	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
+	colFileHandle.writePage(pageNum, colPage);
+
 	rbf_manager->closeFile(colFileHandle);
-	table_id++;
+	//table_id++;
     return 0;
 }
 
