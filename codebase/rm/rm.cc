@@ -77,12 +77,6 @@ RC RelationManager::createCatalog()
 	attr.length = (AttrLength)50;
 	tableAttrs.push_back(attr);
 
-	rbf_manager->openFile(colName, colFileHandle);
-	for(int pos=1; pos<=tableAttrs.size(); pos++){
-		rc = insertColTuple(colFileHandle, tableAttrs[pos-1], pageNum, pos);
-	}
-	rbf_manager->closeFile(colFileHandle);
-
 	// Insert attr of "Columns" to "Columns"
 	vector<Attribute> colAttrs;
 	attr.name = "table-id";
@@ -111,22 +105,27 @@ RC RelationManager::createCatalog()
 	colAttrs.push_back(attr);
 
 	rbf_manager->openFile(colName, colFileHandle);
+	for(int pos=1; pos<=tableAttrs.size(); pos++){
+		rc = insertColTuple(colFileHandle, tableAttrs[pos-1], pageNum, pos);
+	}
+
 	//table_id = 2;
-	dirDescription.slotCount = 2;
 	colPage = new char[PAGE_SIZE];
 	colFileHandle.readPage(1, colPage);
+	memcpy(&dirDescription, colPage+PAGE_SIZE-sizeof(DirDescription), sizeof(DirDescription));
+	dirDescription.slotCount ++;
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
-	colFileHandle.writePage(1, colPage);
-
+	colFileHandle.writePage(pageNum, colPage);
 	for(int pos=1; pos<=colAttrs.size(); pos++){
 		rc = insertColTuple(colFileHandle, colAttrs[pos-1], pageNum, pos);
 	}
+
+	colFileHandle.readPage(1, colPage);
+	memcpy(&dirDescription, colPage+PAGE_SIZE-sizeof(DirDescription), sizeof(DirDescription));
 	dirDescription.slotCount++;
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
-	colFileHandle.writePage(1, colPage);
+	colFileHandle.writePage(pageNum, colPage);
 	rbf_manager->closeFile(colFileHandle);
-
-	//table_id++;
 
     return 0;
 }
@@ -193,6 +192,7 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos){
 	char* page = NULL;
 	page = new char[PAGE_SIZE];
+	//cout << "pageNum: " << pageNum << endl;
     if(fileHandle.readPage(pageNum,page)!=0){
         cout<<"readPage from insertColTuple fail!"<<endl;
         return -1;
@@ -205,11 +205,11 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	//cout << "attrName: " << attrName << endl;
 
 	//cout << "table_id: " << dirDescription.slotCount << endl;
+	//cout << "freeSpacePointer: " << dirDescription.freeSpacePointer << endl;
 	int table_id = (int)dirDescription.slotCount;
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &table_id, sizeof(int));
 	colSize += sizeof(int);
 	varcharLength = attr.name.length();
-	//cout<<"varcharLength: "<<varcharLength<<endl;
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &varcharLength, sizeof(short));
 	colSize += sizeof(short);
 	memcpy(page+dirDescription.freeSpacePointer+colSize, attrName, varcharLength);
@@ -224,7 +224,6 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	colSize += sizeof(int);
 
 	// update dirDescription
-	//dirDescription.slotCount++;
 	dirDescription.freeSpacePointer += colSize;
 	memcpy(page+PAGE_SIZE-sizeof(DirDescription), &dirDescription, sizeof(DirDescription));
 	fileHandle.writePage(pageNum,page);
@@ -288,6 +287,10 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 
 RC RelationManager::deleteTable(const string &tableName)
 {
+	if(tableName.compare("Tables")==0 or tableName.compare("Columns")==0){
+		cout << "System catalog cannot be deleted!" << endl;
+		return -1;
+	}
 	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
 	FileHandle tableFileHandle, colFileHandle;
 	DirDescription dirDescription;
@@ -537,14 +540,14 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		char* attrName = NULL;
 		attrName = new char[varcharLength];
 		memcpy(&varcharLength, colPage+offset, sizeof(short));
-		//cout << "varcharLength: " << varcharLength << endl;
+		cout << "varcharLength: " << varcharLength << endl;
 		offset += sizeof(short);
 		memcpy(attrName, colPage+offset, varcharLength);
-		//cout << "attrName: " << attrName << endl;
+		cout << "attrName: " << attrName << endl;
 		attr.name = attrName;
 		attrName=NULL;
 		delete []attrName;
-		//cout << "name: " << attr.name << endl;
+		cout << "name: " << attr.name << endl;
 		offset += varcharLength;
 		memcpy(&attr.type, colPage+offset, sizeof(int));
 		offset += sizeof(int);
