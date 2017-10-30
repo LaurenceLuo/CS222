@@ -863,7 +863,10 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
             cout<<"ReadRecord from getNextRecord fail!"<<endl;
             return -1;
         }
-
+        
+        
+        char* nullIndicator=new char[nullIndicatorSize];
+        memcpy(nullIndicator, record , nullIndicatorSize);
         //unsigned char* nullIndicator=(unsigned char *) malloc(nullIndicatorSize);
         //memcpy(nullIndicator,record,nullIndicatorSize);
         int offset=nullIndicatorSize;
@@ -880,6 +883,8 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                 case TypeInt:
                     if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
                         //memcpy((int*)data,record+offset,sizeof(int));
+                        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7-j%CHAR_BIT ) ))
+                            break;
                         int storedValue;
                         memcpy(&storedValue,record+offset,sizeof(int));
                         if(compareNum(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
@@ -893,6 +898,8 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                     break;
                 case TypeReal:
                     if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
+                        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7-j%CHAR_BIT ) ))
+                            break;
                         float storedValue;
                         memcpy(&storedValue,record+offset,sizeof(float));
                         if(compareNum(&storedValue,_compOp,_value,_recordDescriptor[j].type)){
@@ -908,6 +915,8 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                     int length;
                     memcpy( &length, record+offset, sizeof(int));
                     if(_recordDescriptor[j].name.compare(_conditionAttribute)==0){
+                        if( ((unsigned char*) nullIndicator)[j/CHAR_BIT] & (1<< (7-j%CHAR_BIT ) ))
+                            break;
                         char *storedValue=new char[length];
                         memcpy(storedValue,record+offset+sizeof(int),length);
                         int _valurLength=(int)strlen((char*)_value);
