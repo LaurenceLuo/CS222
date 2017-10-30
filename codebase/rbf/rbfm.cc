@@ -933,6 +933,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
                     offset+=sizeof(int)+length;
             }
         }
+        delete []nullIndicator;
         delete []record;
         _rid.slotNum++;
     }
