@@ -276,7 +276,7 @@ int RecordBasedFileManager::formatRecord(const vector<Attribute> &recordDescript
     char *_data=(char*)data;
     int offset=0;
     short fieldSize=(short)recordDescriptor.size();
-    short* fieldOffset=new short[recordDescriptor.size()*sizeof(short)];
+    short* fieldOffset=new short[recordDescriptor.size()];
     
     //int fieldOffsetSize =recordDescriptor.size()*sizeof(short);
     int fieldTotalSize=sizeof(short)+recordDescriptor.size()*sizeof(short);
@@ -300,6 +300,7 @@ int RecordBasedFileManager::formatRecord(const vector<Attribute> &recordDescript
                     break;
                 case TypeVarChar:
                     int length;
+                    //cout<<"VarcharLength: "<<length<<endl;
                     memcpy( &length, _data+nullIndicatorSize+offset, sizeof(int));
                     offset += length + sizeof(int);
                     break;
@@ -822,12 +823,12 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
         cout<<"readPage from getNextRecord fail!"<<" PageNum: "<<endl;
         return -1;
     }
-
+    //cout<<"IN_fileHandle.getNumberOfPages()!!!"<<_fileHandle.getNumberOfPages()<<endl;
     bool found=false;
     DirDescription dirDescription;
     memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
     while(!found){
-        //cout<<"_rid.slotNum: "<<_rid.slotNum<<" dirDescription.slotCount: "<<dirDescription.slotCount<<endl;
+        cout<<"_rid.pageNum: "<<_rid.pageNum<<" _rid.slotNum: "<<_rid.slotNum<<" dirDescription.slotCount: "<<dirDescription.slotCount<<endl;
         if(_rid.slotNum+1>dirDescription.slotCount){
             _rid.slotNum=0;
             _rid.pageNum++;
@@ -843,13 +844,21 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
         }
         Slot slot;
         memcpy(&slot,page+PAGE_SIZE-sizeof(DirDescription)-sizeof(Slot)*(_rid.slotNum+1),sizeof(Slot));
-
+        if(slot.length==DELETE_MARK){
+            _rid.slotNum++;
+            continue;
+        }
+        if(slot.length==TOMBSTONE){
+            Slot nextslot;
+            memcpy(&nextslot,page+slot.offset,sizeof(Slot));
+            slot=nextslot;
+        }
         int fieldOffsetSize =_recordDescriptor.size()*sizeof(short);
         int fieldTotalSize=sizeof(short)+fieldOffsetSize;
         int dataSize=slot.length-fieldTotalSize;
         int nullIndicatorSize=ceil((double)_recordDescriptor.size()/CHAR_BIT);
+        //cout<<"slot.length: "<<slot.length<<" fieldTotalSize: "<<fieldTotalSize<<endl;
         char *record=new char[dataSize+nullIndicatorSize];
-
         if(_rbfm->readRecord(_fileHandle, _recordDescriptor, _rid, record)!=0){
             cout<<"ReadRecord from getNextRecord fail!"<<endl;
             return -1;
@@ -1071,5 +1080,6 @@ RC RBFM_ScanIterator::writeIntoData(void *returnedData, const vector<Attribute> 
 RC RBFM_ScanIterator::close(){
     if((char*)_value)
         delete (char*)_value;
+    _fileHandle._closeFile();
     return 0;
 }

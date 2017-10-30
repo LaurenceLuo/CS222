@@ -6,6 +6,7 @@
 #include <climits>
 #include <errno.h>
 #include <math.h>
+#include <cstring>
 
 #include "../rbf/pfm.h"
 
