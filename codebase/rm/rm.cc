@@ -212,7 +212,7 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	varcharLength = attr.name.length();
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &varcharLength, sizeof(short));
 	colSize += sizeof(short);
-	memcpy(page+dirDescription.freeSpacePointer+colSize, attrName, varcharLength);
+	memmove(page+dirDescription.freeSpacePointer+colSize, attrName, varcharLength);
 	//cout<<"varcharLength: "<<varcharLength<<endl;
 	//cout << "attr.name: " << attr.name<< endl;
 	colSize += varcharLength;
@@ -474,6 +474,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 			offset += sizeof(short);
 			name = NULL;
 			name = new char[varcharLength];
+			memset(name, 0, varcharLength+1);
 			memcpy(name, tablePage+offset, varcharLength);
 			string str_name = name;
 			//cout << "strName: " << str_name << endl;
@@ -540,14 +541,15 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		char* attrName = NULL;
 		attrName = new char[varcharLength];
 		memcpy(&varcharLength, colPage+offset, sizeof(short));
-		cout << "varcharLength: " << varcharLength << endl;
+		//cout << "varcharLength: " << varcharLength << endl;
 		offset += sizeof(short);
+		memset(attrName, 0, varcharLength+1);
 		memcpy(attrName, colPage+offset, varcharLength);
-		cout << "attrName: " << attrName << endl;
+		//cout << "attrName: " << attrName << endl;
 		attr.name = attrName;
 		attrName=NULL;
 		delete []attrName;
-		cout << "name: " << attr.name << endl;
+		//cout << "name: " << attr.name << endl;
 		offset += varcharLength;
 		memcpy(&attr.type, colPage+offset, sizeof(int));
 		offset += sizeof(int);
