@@ -43,7 +43,7 @@ RC RelationManager::createCatalog()
 	rc = insertTableTuple(tableFileHandle, tableName, pageNum);
 	rc = insertTableTuple(tableFileHandle, colName, pageNum);
 	rbf_manager->closeFile(tableFileHandle);
-	page = NULL;
+	//page = NULL;
 	delete []page;
 
 	// Create table "Columns"
@@ -58,7 +58,7 @@ RC RelationManager::createCatalog()
 	colFileHandle.appendPage(colPage);
 	colFileHandle.getNumberOfPages();
 	rbf_manager->closeFile(colFileHandle);
-	colPage = NULL;
+	//colPage = NULL;
 	delete []colPage;
 
 	// Insert attrs of "Tables" to "Columns"
@@ -129,7 +129,7 @@ RC RelationManager::createCatalog()
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	colFileHandle.writePage(pageNum, colPage);
 	rbf_manager->closeFile(colFileHandle);
-
+    delete []colPage;
     return 0;
 }
 
@@ -188,7 +188,7 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 	rid.slotNum = 0;
 	rbf_manager->updateDirectoryPage(fileHandle, rid, freeSpace);
 
-	page = NULL;
+	//page = NULL;
 	delete []page;
 	return 0;
 }
@@ -241,7 +241,7 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	rid.slotNum = 0;
 	rbf_manager->updateDirectoryPage(fileHandle, rid, freeSpace);
 
-	page = NULL;
+	//page = NULL;
 	delete []page;
 	return 0;
 }
@@ -285,7 +285,7 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	dirDescription.slotCount ++;
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	colFileHandle.writePage(pageNum, colPage);
-
+    delete []colPage;
 	rbf_manager->closeFile(colFileHandle);
 	//table_id++;
     return 0;
