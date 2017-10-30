@@ -498,16 +498,16 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 				break;
 			}
 			offset += varcharLength;
-			name = NULL;
+			//name = NULL;
 			delete []name;
 			// Not in this page
 			if(offset > PAGE_SIZE-sizeof(DirDescription))
 				break;
 		}
 		if(memcmp(name, TableName, tableName.length())==0){
-			tablePage = NULL;
+			//tablePage = NULL;
 			delete []tablePage;
-			name = NULL;
+			//name = NULL;
 			delete []name;
 			break;
 		}
@@ -544,7 +544,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		}
 		if(findID==id)
 			break;
-		colPage = NULL;
+		//colPage = NULL;
 		delete []colPage;
     }
 	// find attrs
@@ -560,8 +560,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		memcpy(attrName, colPage+offset, varcharLength);
 		//cout << "attrName: " << attrName << endl;
 		attr.name = attrName;
-		attrName=NULL;
-		delete []attrName;
+		//attrName=NULL;
 		//cout << "name: " << attr.name << endl;
 		offset += varcharLength;
 		memcpy(&attr.type, colPage+offset, sizeof(int));
@@ -575,8 +574,9 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		memcpy(&findID, colPage+offset, sizeof(int));
 		offset += sizeof(int);
 		//cout << "findID: " << findID << endl;
+        delete []attrName;
 	}
-	colPage = NULL;
+	//colPage = NULL;
 	delete []colPage;
     rbf_manager->closeFile(colFileHandle);
     return 0;
