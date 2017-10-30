@@ -93,10 +93,6 @@ FileHandle::FileHandle()
 
 FileHandle::~FileHandle()
 {
-    if(!myFile){
-        delete myFile;
-        myFile=NULL;
-    }
 }
 
 RC FileHandle::_openFile(fstream* file)
