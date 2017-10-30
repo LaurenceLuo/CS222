@@ -34,6 +34,7 @@ RC RelationManager::createCatalog()
 	//cout << "old getNumberOfPages: " << tableFileHandle.getNumberOfPages() << endl;
 	char *page = NULL;
 	page = new char[PAGE_SIZE];
+	memset(page, 0, PAGE_SIZE);
 	memcpy(page+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	tableFileHandle.appendPage(page);
 	//tableFileHandle.getNumberOfPages();
@@ -52,6 +53,7 @@ RC RelationManager::createCatalog()
 	dirDescription.freeSpacePointer = 0;
 	char *colPage = NULL;
 	colPage = new char[PAGE_SIZE];
+	memset(colPage, 0, PAGE_SIZE);
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	colFileHandle.appendPage(colPage);
 	colFileHandle.getNumberOfPages();
@@ -111,6 +113,7 @@ RC RelationManager::createCatalog()
 
 	//table_id = 2;
 	colPage = new char[PAGE_SIZE];
+	memset(colPage, 0, PAGE_SIZE);
 	colFileHandle.readPage(1, colPage);
 	memcpy(&dirDescription, colPage+PAGE_SIZE-sizeof(DirDescription), sizeof(DirDescription));
 	dirDescription.slotCount ++;
@@ -148,6 +151,7 @@ bool RelationManager::tableExist(const string &tableName){
 RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &tableName, int pageNum){
 	char* page = NULL;
 	page = new char[PAGE_SIZE];
+	memset(page, 0, PAGE_SIZE);
 	//cout << "tableName: " << tableName << endl;
 	//cout << "insertTableTuple getNumberOfPages: " << fileHandle.getNumberOfPages() << endl;
 	//cout << "pageNum: " << pageNum << endl;
@@ -192,6 +196,7 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos){
 	char* page = NULL;
 	page = new char[PAGE_SIZE];
+	memset(page, 0, PAGE_SIZE);
 	//cout << "pageNum: " << pageNum << endl;
     if(fileHandle.readPage(pageNum,page)!=0){
         cout<<"readPage from insertColTuple fail!"<<endl;
@@ -212,7 +217,7 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	varcharLength = attr.name.length();
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &varcharLength, sizeof(short));
 	colSize += sizeof(short);
-	memmove(page+dirDescription.freeSpacePointer+colSize, attrName, varcharLength);
+	memcpy(page+dirDescription.freeSpacePointer+colSize, attrName, varcharLength);
 	//cout<<"varcharLength: "<<varcharLength<<endl;
 	//cout << "attr.name: " << attr.name<< endl;
 	colSize += varcharLength;
@@ -274,6 +279,7 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	// update table id
 	char *colPage = NULL;
 	colPage = new char[PAGE_SIZE];
+	memset(colPage, 0, PAGE_SIZE);
 	colFileHandle.readPage(pageNum, colPage);
 	memcpy(&dirDescription, colPage+PAGE_SIZE-sizeof(DirDescription), sizeof(DirDescription));
 	dirDescription.slotCount ++;
@@ -307,6 +313,7 @@ RC RelationManager::deleteTable(const string &tableName)
 	char* tablePage = NULL;
 	for(int pageNum=1; pageNum<=tableFileHandle.getNumberOfPages(); pageNum++){
 		tablePage = new char[PAGE_SIZE];
+		memset(tablePage, 0, PAGE_SIZE);
 		if(tableFileHandle.readPage(pageNum,tablePage)!=0){
 			cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
@@ -321,8 +328,9 @@ RC RelationManager::deleteTable(const string &tableName)
 			//cout << "varcharLength: " << varcharLength << endl;
 			offset += sizeof(short);
 			name = new char[varcharLength];
+			memset(name, 0, varcharLength+1);
 			memcpy(name, tablePage+offset, varcharLength);
-			//cout << "tableName in Tables: " << name << endl;
+			cout << "tableName in Tables: " << name << endl;
 			offset += varcharLength;
 			if(memcmp(name, TableName, tableName.length())==0)
 				break;
@@ -341,6 +349,7 @@ RC RelationManager::deleteTable(const string &tableName)
 			recordSize = offset - beginOffset;
 			shiftLength = dirDescription.freeSpacePointer - offset;
 			char* shiftContent = new char[shiftLength];
+			memset(shiftContent, 0, shiftLength);
 			memcpy(shiftContent, tablePage+offset, shiftLength);
 			memcpy(tablePage+beginOffset, shiftContent, shiftLength);
 			dirDescription.freeSpacePointer -= recordSize;
@@ -373,6 +382,7 @@ RC RelationManager::deleteTable(const string &tableName)
     char* shiftContent = NULL;
     for(int pageNum=1; pageNum<=colFileHandle.getNumberOfPages(); pageNum++){
     		colPage = new char[PAGE_SIZE];
+    		memset(colPage, 0, PAGE_SIZE);
 		if(colFileHandle.readPage(pageNum,colPage)!=0){
 			cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
@@ -415,6 +425,7 @@ RC RelationManager::deleteTable(const string &tableName)
 		shiftLength = dirDescription.freeSpacePointer - offset;
 		//cout << "shiftLength: " << shiftLength << endl;
 		shiftContent = new char[shiftLength];
+		memset(shiftContent, 0, PAGE_SIZE);
 		memcpy(shiftContent, colPage+offset, shiftLength);
 		memcpy(colPage+beginOffset, shiftContent, shiftLength);
 		dirDescription.freeSpacePointer -= recordSize;
@@ -458,6 +469,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 	for(int pageNum=1; pageNum<=tableFileHandle.getNumberOfPages(); pageNum++){
 		char* tablePage = NULL;
 		tablePage = new char[PAGE_SIZE];
+		memset(tablePage, 0, PAGE_SIZE);
 		if(tableFileHandle.readPage(pageNum,tablePage)!=0){
 			cout << "pageNum: " << pageNum << endl;
 			cout<<"readPage from getAttributes fail!"<<endl;
@@ -509,6 +521,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
     char* colPage = NULL;
     for(int pageNum=1; pageNum<=colFileHandle.getNumberOfPages(); pageNum++){
     		colPage = new char[PAGE_SIZE];
+    		memset(colPage, 0, PAGE_SIZE);
 		if(colFileHandle.readPage(pageNum,colPage)!=0){
 			cout << "pageNum: " << pageNum << endl;
 			cout<<"readPage from getAttributes fail!"<<endl;
