@@ -425,7 +425,7 @@ RC RelationManager::deleteTable(const string &tableName)
 		shiftLength = dirDescription.freeSpacePointer - offset;
 		//cout << "shiftLength: " << shiftLength << endl;
 		shiftContent = new char[shiftLength];
-		memset(shiftContent, 0, PAGE_SIZE);
+		memset(shiftContent, 0, shiftLength);
 		memcpy(shiftContent, colPage+offset, shiftLength);
 		memcpy(colPage+beginOffset, shiftContent, shiftLength);
 		dirDescription.freeSpacePointer -= recordSize;
