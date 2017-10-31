@@ -828,7 +828,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
     DirDescription dirDescription;
     memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
     while(!found){
-        cout<<"_rid.pageNum: "<<_rid.pageNum<<" _rid.slotNum: "<<_rid.slotNum<<" dirDescription.slotCount: "<<dirDescription.slotCount<<endl;
+        //cout<<"_rid.pageNum: "<<_rid.pageNum<<" _rid.slotNum: "<<_rid.slotNum<<" dirDescription.slotCount: "<<dirDescription.slotCount<<endl;
         if(_rid.slotNum+1>dirDescription.slotCount){
             _rid.slotNum=0;
             _rid.pageNum++;
