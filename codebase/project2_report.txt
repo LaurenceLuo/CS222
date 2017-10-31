@@ -11,6 +11,20 @@ gcc version :
 2. Meta-data
 - Show your meta-data design (Tables and Columns table) and information about each column.
 
+Tables table: (table-id:int, table-name:varchar(50), file-name:varchar(50))
+Since there is no NULL in this table, we can store its data directly. Just need to have a varCharLength before the table-name to store the length of the table. And the file-name is the same as the table-name, so we do not habe to store its length.
+-- int  -- --    short  -- --    varchar   -- --   varchar  --
+---------------------------------------------------------------
+| table-id | varcharLength |    table-name   |   file-name    |
+---------------------------------------------------------------
+
+Columns table: (table-id:int, column-name:varchar(50), column-type:int, column-length:int, column-position:int)
+Since there is no NULL in this table, we can store its data directly. Just need to have a varCharLength before the column-name to store the length of the table.
+-   int   - short - varchar    -    int    -        int     -     int    
+-----------------------------------------------------------------------------
+| table-id| length| column-name| column-type| column-length |column-position|
+-----------------------------------------------------------------------------
+
 
 3. Internal Record Format
 - Show your record format design and describe how your design satisfies O(1) field access. If not, just mention that your team hasn't implemented this feature.
