@@ -450,7 +450,7 @@ RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Att
         cout<<"read page from deleteRecord fail!"<<endl;
         return -1;
     }
-    cout << "read suc!" <<endl;
+    //cout << "read suc!" <<endl;
     DirDescription dirDescription;
     memcpy(&dirDescription,page+PAGE_SIZE-sizeof(DirDescription),sizeof(DirDescription));
     
