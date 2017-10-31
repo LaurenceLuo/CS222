@@ -23,6 +23,20 @@ Since there is no NULL in this table, we can store its data directly. Just need 
 | table-id| length| column-name| column-type| column-length |column-position|
 -----------------------------------------------------------------------------
 
+Tables table: (table-id:int, table-name:varchar(50), file-name:varchar(50))
+Since there is no NULL in this table, we can store its data directly. Just need to have a varCharLength before the table-name to store the length of the table. And the file-name is the same as the table-name, so we do not habe to store its length.
+-- int  -- --    short  -- --    varchar   -- --   varchar  --
+---------------------------------------------------------------
+| table-id | varcharLength |    table-name   |   file-name    |
+---------------------------------------------------------------
+
+Columns table: (table-id:int, column-name:varchar(50), column-type:int, column-length:int, column-position:int)
+Since there is no NULL in this table, we can store its data directly. Just need to have a varCharLength before the column-name to store the length of the table.
+-   int   - short - varchar    -    int    -        int     -     int    
+-----------------------------------------------------------------------------
+| table-id| length| column-name| column-type| column-length |column-position|
+-----------------------------------------------------------------------------
+
 
 3. Internal Record Format
 The record format is modified based on variable-length record on the lecture notes with slight changes. First 2 bytes(short int) are used for storing the total number of attributes counted, followed by the attribute descriptors for each attribute, which is the offset value for corresponding field data, each with 2 bytes(short int). Checking the offset value for each field data, which can directly lead to the data’s position, results in O(1) complexity. If the field data is NULL, the offset will be set as the length of the whole descriptor part (pointing to the beginning of the real data). 
