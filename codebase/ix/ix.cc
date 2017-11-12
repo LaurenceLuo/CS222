@@ -21,22 +21,30 @@ IndexManager::~IndexManager()
 
 RC IndexManager::createFile(const string &fileName)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	rbf_manager->createFile(fileName);
+    return 0;
 }
 
 RC IndexManager::destroyFile(const string &fileName)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	rbf_manager->destroyFile(fileName);
+    return 0;
 }
 
 RC IndexManager::openFile(const string &fileName, IXFileHandle &ixfileHandle)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	rbf_manager->openFile(fileName, ixfileHandle.fileHandle);
+    return 0;
 }
 
 RC IndexManager::closeFile(IXFileHandle &ixfileHandle)
 {
-    return -1;
+	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+	rbf_manager->closeFile(ixfileHandle.fileHandle);
+    return 0;
 }
 
 RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
@@ -96,6 +104,9 @@ IXFileHandle::~IXFileHandle()
 
 RC IXFileHandle::collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount)
 {
-    return -1;
+	readPageCount = ixReadPageCounter;
+	writePageCount = ixWritePageCounter;
+	appendPageCount = ixAppendPageCounter;
+    return 0;
 }
 
