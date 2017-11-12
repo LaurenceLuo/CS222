@@ -80,6 +80,7 @@ class IXFileHandle {
     unsigned ixReadPageCounter;
     unsigned ixWritePageCounter;
     unsigned ixAppendPageCounter;
+    FileHandle fileHandle;
 
     // Constructor
     IXFileHandle();
