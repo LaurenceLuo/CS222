@@ -11,6 +11,27 @@
 class IX_ScanIterator;
 class IXFileHandle;
 
+typedef struct
+{
+    char type=1;//1 Leaf, 2 Nonleaf
+    short size=0;
+    int next=0;
+    int prev=0;
+    
+} NodeDesc;
+
+typedef struct
+{
+    int left;
+    int right;
+    int size;
+    void* value;
+    
+} Key;
+
+const int UpperThreshold=PAGE_SIZE-sizeof(NodeDesc);
+const int LowerThreshold=(PAGE_SIZE-sizeof(NodeDesc))*0.5;
+
 class IndexManager {
 
     public:

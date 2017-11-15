@@ -191,6 +191,11 @@ RC FileHandle::appendPage(const void *data)
     return 0;
 }
 
+RC FileHandle::_isOpen(){
+    if((myFile!=NULL)&&myFile->is_open())
+        return true;
+    else return false;
+}
 
 unsigned FileHandle::getNumberOfPages()
 {

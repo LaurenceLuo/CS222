@@ -21,35 +21,49 @@ IndexManager::~IndexManager()
 
 RC IndexManager::createFile(const string &fileName)
 {
-	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
-	rbf_manager->createFile(fileName);
-    return 0;
+	PagedFileManager *pfm_manager=PagedFileManager::instance();
+	return pfm_manager->createFile(fileName);
 }
 
 RC IndexManager::destroyFile(const string &fileName)
 {
-	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
-	rbf_manager->destroyFile(fileName);
-    return 0;
+	PagedFileManager *pfm_manager=PagedFileManager::instance();
+	return pfm_manager->destroyFile(fileName);
 }
 
 RC IndexManager::openFile(const string &fileName, IXFileHandle &ixfileHandle)
 {
-	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
-	rbf_manager->openFile(fileName, ixfileHandle.fileHandle);
+	PagedFileManager *pfm_manager=PagedFileManager::instance();
+    if(ixfileHandle.fileHandle._isOpen())
+        return -1;
+    if(pfm_manager->openFile(fileName,ixfileHandle.fileHandle)!=0){
+        cout<< "File " << fileName << " open fail!" << endl << endl;
+        return -1;
+    }
+    ixfileHandle.fileHandle.getNumberOfPages();
     return 0;
 }
 
 RC IndexManager::closeFile(IXFileHandle &ixfileHandle)
 {
-	RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
-	rbf_manager->closeFile(ixfileHandle.fileHandle);
-    return 0;
+	PagedFileManager *pfm_manager=PagedFileManager::instance();
+	return pfm_manager->closeFile(ixfileHandle.fileHandle);
 }
 
 RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
 {
-    return -1;
+    /*char* page=new char[PAGE_SIZE];
+    int root=0;
+    if(ixfileHandle.fileHandle.readPage(root,page)!=0){
+        NodeDesc nodeDesc;
+        cout<<"NodeDesc size: "<<sizeof(NodeDesc)<<endl;
+        memcpy(page+PAGE_SIZE-sizeof(NodeDesc),&nodeDesc,sizeof(NodeDesc));
+        if(ixfileHandle.fileHandle.writePage(root,page)!=0){
+            cout<<"Error writing page in insertEntry, pageNum: "<<root<<endl;
+        }
+    }*/
+    
+    
 }
 
 RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
