@@ -52,18 +52,7 @@ RC IndexManager::closeFile(IXFileHandle &ixfileHandle)
 
 RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
 {
-    /*char* page=new char[PAGE_SIZE];
-    int root=0;
-    if(ixfileHandle.fileHandle.readPage(root,page)!=0){
-        NodeDesc nodeDesc;
-        cout<<"NodeDesc size: "<<sizeof(NodeDesc)<<endl;
-        memcpy(page+PAGE_SIZE-sizeof(NodeDesc),&nodeDesc,sizeof(NodeDesc));
-        if(ixfileHandle.fileHandle.writePage(root,page)!=0){
-            cout<<"Error writing page in insertEntry, pageNum: "<<root<<endl;
-        }
-    }*/
-    
-    
+    return -1;
 }
 
 RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
@@ -122,5 +111,72 @@ RC IXFileHandle::collectCounterValues(unsigned &readPageCount, unsigned &writePa
 	writePageCount = ixWritePageCounter;
 	appendPageCount = ixAppendPageCounter;
     return 0;
+}
+
+
+RC BtreeNode::compareKey(const void *key, const void *value, AttrType attrType){
+	int result;
+	switch(attrType){
+		case TypeInt: {
+			int kv = *(int*)key;
+			int v = *(int*)value;
+			if(kv>v) result=1;
+			else if(kv==v) result=0;
+			else result=-1;
+			break;
+		}
+		case TypeReal: {
+			float kv = *(float*)key;
+			float v = *(float*)value;
+			if(kv>v) result=1;
+			else if(kv==v) result=0;
+			else result=-1;
+			break;
+		}
+		// TODO: TypeVarChar compare
+	}
+	return result;
+}
+
+int BtreeNode::getKeyIndex(const void *key){
+	if(keys.size()==0) return 0;
+	int index, cp;
+	for(index=0; index<keys.size(); index++){
+		cp = compareKey(key, keys[index], attrType);
+		if(cp>=0)
+			break;
+	}
+	return index;
+}
+
+int BtreeNode::getChildIndex(const void *key, int keyIndex){
+
+}
+
+RC BtreeNode::insertIndex(const void *key, const int &childNodeID){
+	int pos = getKeyIndex(key);
+
+	keys.insert(keys.begin()+pos, (char*)key);
+	childList.insert(childList.begin()+pos+1, childNodeID);
+	return 0;
+}
+
+
+RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType){
+	node.nodeType = nodeType;
+	node.attrType = attrType;
+	node.leftSibling = 0;
+	node.rightSibling = 0;
+
+
+	return rc;
+}
+
+RC Btree::readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node){
+	void *buffer = new char[PAGE_SIZE];
+	memset(buffer, 0, PAGE_SIZE);
+	RC rc = ixfileHandle.fileHandle.readPage(nodeID, buffer);
+	node.initData(buffer);
+	return rc;
 }
 

@@ -11,13 +11,14 @@
 class IX_ScanIterator;
 class IXFileHandle;
 
+/*
 typedef struct
 {
     char type=1;//1 Leaf, 2 Nonleaf
     short size=0;
     int next=0;
     int prev=0;
-    
+
 } NodeDesc;
 
 typedef struct
@@ -26,11 +27,13 @@ typedef struct
     int right;
     int size;
     void* value;
-    
+
 } Key;
 
 const int UpperThreshold=PAGE_SIZE-sizeof(NodeDesc);
 const int LowerThreshold=(PAGE_SIZE-sizeof(NodeDesc))*0.5;
+ *
+ */
 
 class IndexManager {
 
@@ -73,8 +76,60 @@ class IndexManager {
 
     private:
         static IndexManager *_index_manager;
+        RecordBasedFileManager *rbf_manager;
 };
 
+typedef enum {Index = 0, Leaf} NodeType;
+
+class BtreeNode{
+	public:
+		int nodeID;	// page ID
+		NodeType nodeType;
+		AttrType attrType;
+		int d; // order: d <= m <= 2d
+
+		// only for leaf
+		int leftSibling;
+		int rightSibling;
+
+		vector<void *> keys;
+		vector<int> childList;
+		vector<vector<RID> > buckets;
+
+		void initData(void *data);
+		RC compareKey(const void *key, const void *value, AttrType attrType);
+		int getKeyIndex(const void *key);
+		int getChildIndex(const void *key, int keyIndex);
+		RC insertIndex(const void *key, const int &childNodeID);
+		RC insertLeaf(const void *key, const RID &rid);
+
+		RC readEntry(IXFileHandle &ixfileHandle);
+		RC writeEntry(IXFileHandle &ixfileHandle);
+
+	protected:
+		BtreeNode();
+		~BtreeNode();
+
+	private:
+};
+
+class Btree{
+	public:
+		int rootID;
+		AttrType attrType;
+		int d;
+
+		RC createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType);
+		RC readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node);
+		RC writeNode(IXFileHandle &ixfileHandle, BtreeNode &node);
+
+		RC insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
+		RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
+		int findEntry(IXFileHandle &ixfileHandle, const void *key);
+
+	private:
+
+};
 
 class IX_ScanIterator {
     public:
