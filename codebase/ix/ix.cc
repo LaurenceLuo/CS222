@@ -113,6 +113,68 @@ RC IXFileHandle::collectCounterValues(unsigned &readPageCount, unsigned &writePa
     return 0;
 }
 
+RC BtreeNode::initData(void *data){
+    //nodeID=0;
+    memcpy(nodePage,(char*)data,PAGE_SIZE);
+    
+    memcpy(&nodeID, nodePage, sizeof(int));
+    
+    //nodeType=Index;
+    memcpy(&nodeType, nodePage + sizeof(int), sizeof(int));
+    
+    //attrType=TypeInt;
+    memcpy(&attrType, nodePage + 2 * sizeof(int), sizeof(int));
+    
+    //int attrLen = 0;
+    memcpy(&attrLen, nodePage + 3 * sizeof(int), sizeof(int));
+    
+    //int deleteMark = 0;
+    memcpy(&deleteMark, nodePage + 4 * sizeof(int), sizeof(int));
+    
+    //d=0;
+    memcpy(&d, nodePage + 5 * sizeof(int), sizeof(int));
+    
+    //leftSibling = 0;
+    memcpy(&leftSibling, nodePage + 6 * sizeof(int), sizeof(int));
+
+    //rightSibling = 0;
+    memcpy(&rightSibling, nodePage + 7 * sizeof(int), sizeof(int));
+    
+    int size, child;
+    memcpy(&size, nodePage + 8 * sizeof(int), sizeof(int));
+    for (int i = 0; i < size; i++){
+        memcpy(&child, nodePage + (9 + i) * sizeof(int), sizeof(int));
+        childList.push_back(child);
+    }
+    
+    int maxKeyNum=2*d;
+    int offset = (9 + maxKeyNum + 1) * sizeof(int);
+    memcpy(&size, nodePage+ offset,sizeof(int));
+    for(int i=0;i<size;i++){
+        void *key;
+        switch(attrType){
+            case TypeVarChar:
+                int varCharLen;
+                memcpy(&varCharLen, nodePage + offset, sizeof(int));
+                key = malloc(varCharLen + sizeof(int));
+                memcpy(key, (char*)nodePage + offset, sizeof(int));
+                memcpy(key, (char*)nodePage + offset+sizeof(int), varCharLen);
+                offset += (varCharLen + sizeof(int));
+                keys.push_back(key);
+            case TypeInt:
+                key = malloc(sizeof(int));
+                memcpy(key, (char*)nodePage + offset, sizeof(int));
+                offset += sizeof(int);
+                keys.push_back(key);
+            case TypeReal:
+                key = malloc(sizeof(float));
+                memcpy(key, (char*)nodePage + offset, sizeof(float));
+                offset += sizeof(float);
+                keys.push_back(key);
+        }
+    }
+    return 0;
+}
 
 RC BtreeNode::compareKey(const void *key, const void *value, AttrType attrType){
 	int result;
@@ -133,6 +195,8 @@ RC BtreeNode::compareKey(const void *key, const void *value, AttrType attrType){
 			else result=-1;
 			break;
 		}
+        case TypeVarChar:
+            break;
 		// TODO: TypeVarChar compare
 	}
 	return result;
@@ -169,7 +233,7 @@ RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeT
 	node.rightSibling = 0;
 
 
-	return rc;
+	return 0;
 }
 
 RC Btree::readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node){

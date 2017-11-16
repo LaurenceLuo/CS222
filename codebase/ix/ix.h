@@ -83,11 +83,13 @@ typedef enum {Index = 0, Leaf} NodeType;
 
 class BtreeNode{
 	public:
+        char nodePage[PAGE_SIZE];
 		int nodeID;	// page ID
 		NodeType nodeType;
 		AttrType attrType;
 		int d; // order: d <= m <= 2d
-
+        int attrLen;
+        int deleteMark;
 		// only for leaf
 		int leftSibling;
 		int rightSibling;
@@ -96,12 +98,12 @@ class BtreeNode{
 		vector<int> childList;
 		vector<vector<RID> > buckets;
 
-		void initData(void *data);
+		RC initData(void *data);
 		RC compareKey(const void *key, const void *value, AttrType attrType);
 		int getKeyIndex(const void *key);
 		int getChildIndex(const void *key, int keyIndex);
 		RC insertIndex(const void *key, const int &childNodeID);
-		RC insertLeaf(const void *key, const RID &rid);
+		//RC insertLeaf(const void *key, const RID &rid);
 
 		RC readEntry(IXFileHandle &ixfileHandle);
 		RC writeEntry(IXFileHandle &ixfileHandle);
