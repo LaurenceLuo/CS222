@@ -12,7 +12,7 @@ class IX_ScanIterator;
 class IXFileHandle;
 
 typedef enum {Index = 0, Leaf} NodeType;
-
+typedef vector<RID> RidList;
 
 class BtreeNode{
 	public:
@@ -30,7 +30,7 @@ class BtreeNode{
 
 		vector<void *> keys;
 		vector<int> childList;
-		vector<vector<RID> > buckets;
+		vector<RidList> buckets;
 
 		void getData(void *data);
 		void setData(BtreeNode *node);
@@ -50,11 +50,13 @@ class BtreeNode{
 	private:
 };
 
+//	Store meta data of Btree to page 0
 class Btree{
 	public:
 		int rootID;
 		AttrType attrType;
 		int d;
+		int attrLen;
 
 		RC createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType);
 		RC readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node);
@@ -65,7 +67,7 @@ class Btree{
 		int findEntry(IXFileHandle &ixfileHandle, const void *key);
 
 	private:
-
+		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid);
 };
 
 class IndexManager {
@@ -91,8 +93,8 @@ class IndexManager {
         // Delete an entry from the given index that is indicated by the given ixfileHandle.
         RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 
-        RC readBtree(FileHandle &fileHandle, Btree *btree);
-        RC writeBtree(FileHandle &fileHandle, const Btree *btree);
+        RC readBtree(IXFileHandle &ixfileHandle, Btree *btree);
+        RC writeBtree(IXFileHandle &ixfileHandle, const Btree *btree);
 
         // Initialize and IX_ScanIterator to support a range search
         RC scan(IXFileHandle &ixfileHandle,

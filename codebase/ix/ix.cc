@@ -67,12 +67,40 @@ RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
     return rc;
 }
 
-RC readBtree(FileHandle &fileHandle, Btree *btree){
+RC readBtree(IXFileHandle &ixfileHandle, Btree *btree){
+	char *buffer = new char[PAGE_SIZE];
+	memset(buffer, 0, PAGE_SIZE);
+	RC rc = ixfileHandle.fileHandle.readPage(0, buffer);
 
+	int offset = 0;
+    memcpy(&btree->rootID, (char*) buffer + offset, sizeof(int));
+    offset += sizeof(int);
+    memcpy(&btree->attrType, (char*) buffer + offset, sizeof(int));
+    offset += sizeof(int);
+    memcpy(&btree->d, (char*) buffer + offset, sizeof(int));
+    offset += sizeof(int);
+    memcpy(&btree->attrLen, (char*) buffer + offset, sizeof(int));
+
+    delete[] buffer;
+    return rc;
 }
 
-RC writeBtree(FileHandle &fileHandle, const Btree *btree){
+RC writeBtree(IXFileHandle &ixfileHandle, const Btree *btree){
+	char *buffer = new char[PAGE_SIZE];
+	memset(buffer, 0, PAGE_SIZE);
 
+	int offset = 0;
+	memcpy(buffer, &btree->rootID, sizeof(int));
+	offset += sizeof(int);
+	memcpy(buffer+offset, &btree->attrType, sizeof(int));
+	offset += sizeof(int);
+	memcpy(buffer+offset, &btree->d, sizeof(int));
+	offset += sizeof(int);
+	memcpy(buffer+offset, &btree->attrLen, sizeof(int));
+
+	RC rc = ixfileHandle.fileHandle.writePage(0, buffer);
+	delete[] buffer;
+	return rc;
 }
 
 
@@ -307,15 +335,20 @@ int BtreeNode::getChildIndex(const void *key, int keyIndex){
 }
 
 RC BtreeNode::insertIndex(const void *key, const int &childNodeID){
-	int pos = getKeyIndex(key);
+	int index = getKeyIndex(key);
 
-	keys.insert(keys.begin()+pos, (char*)key);
-	childList.insert(childList.begin()+pos+1, childNodeID);
+	keys.insert(keys.begin()+index, (char*)key);
+	childList.insert(childList.begin()+index+1, childNodeID);
 	return 0;
 }
 
 RC BtreeNode::insertLeaf(const void *key, const RID &rid){
-
+	int index = getKeyIndex(key);
+	keys.insert(keys.begin()+index, (char*)key);
+	RidList ridList;
+	ridList.push_back(rid);
+	buckets.insert(buckets.begin()+index, ridList);
+	return 0;
 }
 
 RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
@@ -348,7 +381,38 @@ RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
 }
 
 RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
+	// btree is empty
+	RC rc=0;
+	if(not rootID){
+		attrType = attribute.type;
+		attrLen = attribute.length;
+		// get order d
+		switch(attribute.type){
+			case TypeInt:
+				d = (PAGE_SIZE / sizeof(int) - 8) / 8;
+				break;
+			case TypeReal:
+				d = (PAGE_SIZE / sizeof(float) - 8) / 8;
+				break;
+			// TODO
+			case TypeVarChar:
+				break;
+		}
 
+		BtreeNode root;
+		rc += createNode(ixfileHandle, root, Leaf);
+		root.insertLeaf(key, rid);
+		rc += writeNode(ixfileHandle, root);
+		rootID = root.nodeID;
+	}
+	else{
+		recursiveInsert(ixfileHandle, key, rid);
+	}
+	return rc;
+}
+
+RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid){
+	return 0;
 }
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
