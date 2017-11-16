@@ -11,85 +11,19 @@
 class IX_ScanIterator;
 class IXFileHandle;
 
-/*
-typedef struct
-{
-    char type=1;//1 Leaf, 2 Nonleaf
-    short size=0;
-    int next=0;
-    int prev=0;
-
-} NodeDesc;
-
-typedef struct
-{
-    int left;
-    int right;
-    int size;
-    void* value;
-
-} Key;
-
-const int UpperThreshold=PAGE_SIZE-sizeof(NodeDesc);
-const int LowerThreshold=(PAGE_SIZE-sizeof(NodeDesc))*0.5;
- *
- */
-
-class IndexManager {
-
-    public:
-        static IndexManager* instance();
-
-        // Create an index file.
-        RC createFile(const string &fileName);
-
-        // Delete an index file.
-        RC destroyFile(const string &fileName);
-
-        // Open an index and return an ixfileHandle.
-        RC openFile(const string &fileName, IXFileHandle &ixfileHandle);
-
-        // Close an ixfileHandle for an index.
-        RC closeFile(IXFileHandle &ixfileHandle);
-
-        // Insert an entry into the given index that is indicated by the given ixfileHandle.
-        RC insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
-
-        // Delete an entry from the given index that is indicated by the given ixfileHandle.
-        RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
-
-        // Initialize and IX_ScanIterator to support a range search
-        RC scan(IXFileHandle &ixfileHandle,
-                const Attribute &attribute,
-                const void *lowKey,
-                const void *highKey,
-                bool lowKeyInclusive,
-                bool highKeyInclusive,
-                IX_ScanIterator &ix_ScanIterator);
-
-        // Print the B+ tree in pre-order (in a JSON record format)
-        void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
-
-    protected:
-        IndexManager();
-        ~IndexManager();
-
-    private:
-        static IndexManager *_index_manager;
-        RecordBasedFileManager *rbf_manager;
-};
-
 typedef enum {Index = 0, Leaf} NodeType;
+
 
 class BtreeNode{
 	public:
-        char nodePage[PAGE_SIZE];
+		char nodePage[PAGE_SIZE];
 		int nodeID;	// page ID
 		NodeType nodeType;
 		AttrType attrType;
+		int attrLen;
+		int deleteMark;
 		int d; // order: d <= m <= 2d
-        int attrLen;
-        int deleteMark;
+
 		// only for leaf
 		int leftSibling;
 		int rightSibling;
@@ -98,12 +32,13 @@ class BtreeNode{
 		vector<int> childList;
 		vector<vector<RID> > buckets;
 
-		RC initData(void *data);
+		void getData(void *data);
+		void setData(BtreeNode *node);
 		RC compareKey(const void *key, const void *value, AttrType attrType);
 		int getKeyIndex(const void *key);
 		int getChildIndex(const void *key, int keyIndex);
 		RC insertIndex(const void *key, const int &childNodeID);
-		//RC insertLeaf(const void *key, const RID &rid);
+		RC insertLeaf(const void *key, const RID &rid);
 
 		RC readEntry(IXFileHandle &ixfileHandle);
 		RC writeEntry(IXFileHandle &ixfileHandle);
@@ -132,6 +67,54 @@ class Btree{
 	private:
 
 };
+
+class IndexManager {
+
+    public:
+        static IndexManager* instance();
+
+        // Create an index file.
+        RC createFile(const string &fileName);
+
+        // Delete an index file.
+        RC destroyFile(const string &fileName);
+
+        // Open an index and return an ixfileHandle.
+        RC openFile(const string &fileName, IXFileHandle &ixfileHandle);
+
+        // Close an ixfileHandle for an index.
+        RC closeFile(IXFileHandle &ixfileHandle);
+
+        // Insert an entry into the given index that is indicated by the given ixfileHandle.
+        RC insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
+
+        // Delete an entry from the given index that is indicated by the given ixfileHandle.
+        RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
+
+        RC readBtree(FileHandle &fileHandle, Btree *btree);
+        RC writeBtree(FileHandle &fileHandle, const Btree *btree);
+
+        // Initialize and IX_ScanIterator to support a range search
+        RC scan(IXFileHandle &ixfileHandle,
+                const Attribute &attribute,
+                const void *lowKey,
+                const void *highKey,
+                bool lowKeyInclusive,
+                bool highKeyInclusive,
+                IX_ScanIterator &ix_ScanIterator);
+
+        // Print the B+ tree in pre-order (in a JSON record format)
+        void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
+
+    protected:
+        IndexManager();
+        ~IndexManager();
+
+    private:
+        static IndexManager *_index_manager;
+        static PagedFileManager *_pfm_manager;
+};
+
 
 class IX_ScanIterator {
     public:
