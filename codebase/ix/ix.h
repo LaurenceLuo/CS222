@@ -44,9 +44,11 @@ class BtreeNode{
 		RC readEntry(IXFileHandle &ixfileHandle);
 		RC writeEntry(IXFileHandle &ixfileHandle);
 
-        BtreeNode();
-        ~BtreeNode(){};
+	protected:
+		BtreeNode();
+		~BtreeNode();
 
+	private:
 };
 
 //	Store meta data of Btree to page 0
@@ -65,8 +67,9 @@ class Btree{
 		RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 		int findEntryPID(IXFileHandle &ixfileHandle, const void *key);
 
-        Btree();
-        ~Btree(){};
+	protected:
+		Btree();
+		~Btree();
 
 	private:
 		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID);
@@ -110,7 +113,6 @@ class IndexManager {
 
         // Print the B+ tree in pre-order (in a JSON record format)
         void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
-        void recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute, Btree *btree, BtreeNode *node, int depth);
 
     protected:
         IndexManager();

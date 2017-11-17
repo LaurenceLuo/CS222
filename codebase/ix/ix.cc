@@ -117,104 +117,7 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
 }
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
-    RC rc;
-    Btree btree;
-    rc += readBtree(ixfileHandle, &btree);
-    //btree.readNode(ixfileHandle,0,&node);
-    recursivePrint(ixfileHandle,attribute,&btree, 0,btree.rootID);
-}
 
-void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID){
-    BtreeNode node;
-    RC rc=btree.readNode(ixfileHandle,nodeID,&node);
-    for(int i=0; i<depth; i++) printf("\t");
-    
-    int keySize;
-    int maxKeyNum=2*node.d;
-    int offset = (9 + maxKeyNum + 1) * sizeof(int);
-    memcpy(&keySize, node.nodePage+ offset,sizeof(int));
-    
-    if(node.nodeType==Index){
-        vector<int> links;
-        int count=0;
-        printf("{\"keys\":[");
-        while(count<keySize){
-            if( count > 0 ) printf(",");
-            printf("\"");
-            switch(node.attrType){
-                case TypeInt:
-                    printf("%d",*((int*)node.key[count]));
-                    offset+=sizeof(int);
-                    break;
-                case TypeReal:
-                    printf("%f",*((int*)node.key[count]));
-                    offset+=sizeof(int);
-                    break;
-                case TypeVarChar:
-                    int varCharLen;
-                    memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
-                    assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    string sa( (char*)node.key[count] , varCharLen);
-                    printf("%s",sa.c_str());
-                    offset+=sizeof(int)+varCharLen;
-                    break;
-            }
-            printf("\"");
-            links.push_back(node.childList[count]);
-            count++;
-        }
-        printf("],\n");
-        links.push_back(node.childList[count+1]);// add the last link to vectory
-        
-        for(int i=0;i<depth;i++)
-            printf("\t");
-        printf("\"children\":[");
-        for( int i=0; i<links.size(); i++){
-            printBtree(ixfileHandle,attribute,&btree,depth+1,links[i]);
-            if( i < links.size() - 1 ) printf(",\n");
-        }
-        printf("]}\n");
-    }
-    else if(node.nodeType==Leaf){
-        int count=0;
-        printf("{\"keys\":[");
-        while(count<keySize){
-            if( count > 0 ) printf(",");
-            printf("\"");
-            //print keys
-            switch(node.attrType){
-                case TypeInt:
-                    printf("%d",*((int*)node.key[count]));
-                    offset+=sizeof(int);
-                    break;
-                case TypeReal:
-                    printf("%f",*((int*)node.key[count]));
-                    offset+=sizeof(int);
-                    break;
-                case TypeVarChar:
-                    int varCharLen;
-                    memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
-                    assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    string sa( (char*)node.key[count] , varCharLen);
-                    printf("%s",sa.c_str());
-                    offset+=sizeof(int)+varCharLen;
-                    break;
-            }
-            printf(":[");
-            //print RIDs
-            for(int i=0; i<node.buckets.size();i++){
-                for(int j=0; j<node.buckets[i].size();j++){
-                    printf("(%d,%d)",node.buckets[i][j].pageNum,node.buckets[i][j].slotNum);
-                    if(i < node.buckets.size()-1&&j<node.buckets[i].size()-1) printf(",");
-                }
-            }
-            printf("]\"");
-            count++;
-        }
-        printf("]}\n");
-        
-    }
-    
 }
 
 IX_ScanIterator::IX_ScanIterator()
@@ -481,10 +384,10 @@ RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
 	RID rid;
 	switch(nodeType){
 		case TypeInt:
-			offset = 11*sizeof(int) + 16 * d;
+			offset = 11*sizeof(int) + 4*d * sizeof(int);
 			break;
 		case TypeReal:
-			offset = 11*sizeof(float) + 16 * d;
+			offset = 11*sizeof(float) + 4*d * sizeof(int);
 			break;
 		// TODO
 		case TypeVarChar:
@@ -509,10 +412,10 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 	int offset;
 	switch(nodeType){
 		case TypeInt:
-			offset = 11*sizeof(int) + 16 * d;
+			offset = 11*sizeof(int) + 4*d * sizeof(int);
 			break;
 		case TypeReal:
-			offset = 11*sizeof(float) + 16 * d;
+			offset = 11*sizeof(float) + 4*d * sizeof(int);
 			break;
 		// TODO
 		case TypeVarChar:
@@ -567,7 +470,7 @@ RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
 
 RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
 	RC rc=0;
-	if(not rootID){
+	if(rootID==NULL){
 		// btree is empty
 		attrType = attribute.type;
 		attrLen = attribute.length;
@@ -575,13 +478,14 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		switch(attribute.type){
 			case TypeInt:
 				// keys, childList, RIDs
-				d = (PAGE_SIZE / sizeof(int) - 10) / 8;
+				d = (PAGE_SIZE / sizeof(int) - 11) / 6;
 				break;
 			case TypeReal:
-				d = (PAGE_SIZE / sizeof(float) - 10) / 8;
+				d = (PAGE_SIZE / sizeof(float) - 11) / 6;
 				break;
+			// TODO
 			case TypeVarChar:
-				d = (PAGE_SIZE - sizeof(int)*10) / (2*(4*sizeof(int)+attribute.length));
+				//d = (PAGE_SIZE - sizeof(int)*11) / (2*(3*sizeof(int)+attribute.length));
 				break;
 		}
 
