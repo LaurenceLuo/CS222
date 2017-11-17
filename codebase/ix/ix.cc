@@ -434,15 +434,45 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 }
 
 RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID){
+	BtreeNode node;
+	RC rc;
+	int index, childIndex, childID;
+	rc += readNode(ixfileHandle, nodeID, node);
 
-	return 0;
+	if(node.nodeType==Leaf){
+		node.insertLeaf(key, rid);
+		rc += writeNode(ixfileHandle, node);
+	}
+	else{ // nodeType = Index
+		index = node.getKeyIndex(key);
+		childIndex = node.getChildIndex(key, index);
+		childID = node.childList[childIndex];
+		rc += recursiveInsert(ixfileHandle, key, rid, childID);
+	}
+	return rc;
 }
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
 
 }
 
-int Btree::findEntry(IXFileHandle &ixfileHandle, const void *key){
+int Btree::findEntryPID(IXFileHandle &ixfileHandle, const void *key){
+	return recursiveFind(ixfileHandle, key, rootID);
+}
 
+int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID){
+	BtreeNode node;
+	readNode(ixfileHandle, nodeID, node);
+	int index, childIndex, childID;
+
+	if(node.nodeType==Leaf){
+		return node.nodeID;
+	}
+	else{
+		index = node.getKeyIndex(key);
+		childIndex = node.getChildIndex(key, index);
+		childID = node.childList[childIndex];
+		return recursiveFind(ixfileHandle, key, childID);
+	}
 }
 

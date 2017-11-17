@@ -65,7 +65,7 @@ class Btree{
 
 		RC insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 		RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
-		int findEntry(IXFileHandle &ixfileHandle, const void *key);
+		int findEntryPID(IXFileHandle &ixfileHandle, const void *key);
 
 	protected:
 		Btree();
@@ -73,6 +73,7 @@ class Btree{
 
 	private:
 		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID);
+		int recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID);
 };
 
 class IndexManager {
