@@ -40,6 +40,7 @@ class BtreeNode{
 		RC insertIndex(const void *key, const int &childNodeID);
 		RC insertLeaf(const void *key, const RID &rid);
 
+		// Leaf node
 		RC readEntry(IXFileHandle &ixfileHandle);
 		RC writeEntry(IXFileHandle &ixfileHandle);
 
@@ -66,8 +67,12 @@ class Btree{
 		RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 		int findEntry(IXFileHandle &ixfileHandle, const void *key);
 
+	protected:
+		Btree();
+		~Btree();
+
 	private:
-		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid);
+		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID);
 };
 
 class IndexManager {

@@ -157,6 +157,18 @@ RC IXFileHandle::collectCounterValues(unsigned &readPageCount, unsigned &writePa
     return 0;
 }
 
+BtreeNode::BtreeNode(){
+	memset(nodePage, 0, PAGE_SIZE);
+	nodeID = 0;
+	attrLen = 0;
+	deleteMark = 0;
+	leftSibling = 0;
+	rightSibling = 0;
+	d = 0;
+	nodeType = 0;
+	attrType = 0;
+}
+
 void BtreeNode::getData(void *data){
     //nodeID=0;
 	memcpy(nodePage,(char*)data,PAGE_SIZE);
@@ -224,7 +236,7 @@ void BtreeNode::getData(void *data){
     }
 }
 
-void setData(BtreeNode *node){
+void BtreeNode::setData(BtreeNode *node){
 	char *buffer = new char[PAGE_SIZE];
 	memset(buffer, 0, PAGE_SIZE);
 	int offset = 0;
@@ -359,6 +371,13 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 
 }
 
+Btree::Btree(){
+	attrLen = 0;
+	attrType = 0;
+	rootID = NULL;
+	d = 0;
+}
+
 RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType){
 	memset(node.nodePage, 0, PAGE_SIZE);
 	node.nodeType = nodeType;
@@ -377,25 +396,28 @@ RC Btree::readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node){
 }
 
 RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
-
+	node.setData(&node);
+	RC rc = ixfileHandle.fileHandle.writePage(node.nodeID, node.nodePage);
+	return rc;
 }
 
 RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
-	// btree is empty
 	RC rc=0;
 	if(not rootID){
+		// btree is empty
 		attrType = attribute.type;
 		attrLen = attribute.length;
-		// get order d
+
 		switch(attribute.type){
 			case TypeInt:
+				// keys, childList, RIDs
 				d = (PAGE_SIZE / sizeof(int) - 8) / 8;
 				break;
 			case TypeReal:
 				d = (PAGE_SIZE / sizeof(float) - 8) / 8;
 				break;
-			// TODO
 			case TypeVarChar:
+				d = (PAGE_SIZE - sizeof(int)*8) / (2*(3*sizeof(int)+attribute.length));
 				break;
 		}
 
@@ -406,12 +428,13 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		rootID = root.nodeID;
 	}
 	else{
-		recursiveInsert(ixfileHandle, key, rid);
+		recursiveInsert(ixfileHandle, key, rid, rootID);
 	}
 	return rc;
 }
 
-RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid){
+RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID){
+
 	return 0;
 }
 
