@@ -117,7 +117,104 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
 }
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
+    RC rc;
+    Btree btree;
+    rc += readBtree(ixfileHandle, &btree);
+    //btree.readNode(ixfileHandle,0,&node);
+    recursivePrint(ixfileHandle,attribute,&btree, 0,btree.rootID);
+}
 
+void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID){
+    BtreeNode node;
+    RC rc=btree.readNode(ixfileHandle,nodeID,&node);
+    for(int i=0; i<depth; i++) printf("\t");
+    
+    int keySize;
+    int maxKeyNum=2*node.d;
+    int offset = (9 + maxKeyNum + 1) * sizeof(int);
+    memcpy(&keySize, node.nodePage+ offset,sizeof(int));
+    
+    if(node.nodeType==Index){
+        vector<int> links;
+        int count=0;
+        printf("{\"keys\":[");
+        while(count<keySize){
+            if( count > 0 ) printf(",");
+            printf("\"");
+            switch(node.attrType){
+                case TypeInt:
+                    printf("%d",*((int*)node.key[count]));
+                    offset+=sizeof(int);
+                    break;
+                case TypeReal:
+                    printf("%f",*((int*)node.key[count]));
+                    offset+=sizeof(int);
+                    break;
+                case TypeVarChar:
+                    int varCharLen;
+                    memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
+                    assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
+                    string sa( (char*)node.key[count] , varCharLen);
+                    printf("%s",sa.c_str());
+                    offset+=sizeof(int)+varCharLen;
+                    break;
+            }
+            printf("\"");
+            links.push_back(node.childList[count]);
+            count++;
+        }
+        printf("],\n");
+        links.push_back(node.childList[count+1]);// add the last link to vectory
+        
+        for(int i=0;i<depth;i++)
+            printf("\t");
+        printf("\"children\":[");
+        for( int i=0; i<links.size(); i++){
+            printBtree(ixfileHandle,attribute,&btree,depth+1,links[i]);
+            if( i < links.size() - 1 ) printf(",\n");
+        }
+        printf("]}\n");
+    }
+    else if(node.nodeType==Leaf){
+        int count=0;
+        printf("{\"keys\":[");
+        while(count<keySize){
+            if( count > 0 ) printf(",");
+            printf("\"");
+            //print keys
+            switch(node.attrType){
+                case TypeInt:
+                    printf("%d",*((int*)node.key[count]));
+                    offset+=sizeof(int);
+                    break;
+                case TypeReal:
+                    printf("%f",*((int*)node.key[count]));
+                    offset+=sizeof(int);
+                    break;
+                case TypeVarChar:
+                    int varCharLen;
+                    memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
+                    assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
+                    string sa( (char*)node.key[count] , varCharLen);
+                    printf("%s",sa.c_str());
+                    offset+=sizeof(int)+varCharLen;
+                    break;
+            }
+            printf(":[");
+            //print RIDs
+            for(int i=0; i<node.buckets.size();i++){
+                for(int j=0; j<node.buckets[i].size();j++){
+                    printf("(%d,%d)",node.buckets[i][j].pageNum,node.buckets[i][j].slotNum);
+                    if(i < node.buckets.size()-1&&j<node.buckets[i].size()-1) printf(",");
+                }
+            }
+            printf("]\"");
+            count++;
+        }
+        printf("]}\n");
+        
+    }
+    
 }
 
 IX_ScanIterator::IX_ScanIterator()

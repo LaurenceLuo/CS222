@@ -110,6 +110,7 @@ class IndexManager {
 
         // Print the B+ tree in pre-order (in a JSON record format)
         void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
+        void recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute, Btree *btree, BtreeNode *node, int depth);
 
     protected:
         IndexManager();
