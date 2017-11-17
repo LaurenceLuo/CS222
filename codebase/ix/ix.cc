@@ -68,7 +68,7 @@ RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
     return rc;
 }
 
-RC IndexManager::readBtree(IXFileHandle &ixfileHandle, Btree *btree){
+RC readBtree(IXFileHandle &ixfileHandle, Btree *btree){
 	char *buffer = new char[PAGE_SIZE];
 	memset(buffer, 0, PAGE_SIZE);
 	RC rc = ixfileHandle.fileHandle.readPage(0, buffer);
@@ -86,7 +86,7 @@ RC IndexManager::readBtree(IXFileHandle &ixfileHandle, Btree *btree){
     return rc;
 }
 
-RC IndexManager::writeBtree(IXFileHandle &ixfileHandle, const Btree *btree){
+RC writeBtree(IXFileHandle &ixfileHandle, const Btree *btree){
 	char *buffer = new char[PAGE_SIZE];
 	memset(buffer, 0, PAGE_SIZE);
 
@@ -166,8 +166,8 @@ BtreeNode::BtreeNode(){
 	leftSibling = 0;
 	rightSibling = 0;
 	d = 0;
-	nodeType = Index;
-	attrType = TypeInt;
+	nodeType = 0;
+	attrType = 0;
 }
 
 void BtreeNode::getData(void *data){
@@ -283,19 +283,19 @@ void BtreeNode::setData(BtreeNode *node){
     for(int i=0;i<size;i++){
         void *key;
         switch(node->attrType){
-            case TypeVarChar:{
+            case TypeVarChar:
                 int varCharLen = *(int *)node->keys[i];
                 memcpy(buffer+offset, (char *)node->keys[i], sizeof(int)+varCharLen);
                 offset += (varCharLen + sizeof(int));
                 break;
-            }
+
             case TypeInt:
                 memcpy(buffer+offset, &node->keys[i], sizeof(int));
                 offset += sizeof(int);
                 break;
 
             case TypeReal:
-                memcpy(buffer+offset, &node->keys[i], sizeof(float));
+            		memcpy(buffer+offset, &node->keys[i], sizeof(float));
                 offset += sizeof(float);
                 break;
         }
@@ -323,8 +323,21 @@ RC BtreeNode::compareKey(const void *key, const void *value, AttrType attrType){
 			else result=-1;
 			break;
 		}
-		// TODO: TypeVarChar compare
 		case TypeVarChar: {
+			int keyLen, valueLen;
+			memcpy(&keyLen, key, sizeof(int));
+			char *keyStr = new char[keyLen];
+			memcpy(&keyStr, key+sizeof(int), keyLen);
+
+			memcpy(&valueLen, value, sizeof(int));
+			char *valueStr = new char[valueLen];
+			memcpy(&valueStr, value+sizeof(int), valueLen);
+
+			if(strcmp(keyStr, valueStr)==0) result=0;
+			else if(strcmp(keyStr, valueStr)>0) result=1;
+			else result=-1;
+			delete[] keyStr;
+			delete[] valueStr;
 			break;
 		}
 	}
@@ -365,16 +378,65 @@ RC BtreeNode::insertLeaf(const void *key, const RID &rid){
 }
 
 RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
-
+	RC rc = 0;
+	buckets.clear();
+	int offset, bucketSize;
+	RID rid;
+	switch(nodeType){
+		case TypeInt:
+			offset = 11*sizeof(int) + 16 * d;
+			break;
+		case TypeReal:
+			offset = 11*sizeof(float) + 16 * d;
+			break;
+		// TODO
+		case TypeVarChar:
+			break;
+	}
+	memcpy(&bucketSize, nodePage+offset, sizeof(int));
+	offset += sizeof(int);
+	for(int i=0; i<bucketSize; i++){
+		memcpy(&rid.pageNum, nodePage+offset, sizeof(short));
+		offset += sizeof(short);
+		memcpy(&rid.slotNum, nodePage+offset, sizeof(short));
+		offset += sizeof(short);
+		RidList ridList;
+		ridList.push_back(rid);
+		buckets.push_back(ridList);
+	}
+	return rc;
 }
 
 RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
+	RC rc = 0;
+	int offset;
+	switch(nodeType){
+		case TypeInt:
+			offset = 11*sizeof(int) + 16 * d;
+			break;
+		case TypeReal:
+			offset = 11*sizeof(float) + 16 * d;
+			break;
+		// TODO
+		case TypeVarChar:
+			break;
+	}
+	int bucketSize = buckets.size();
+	memcpy(nodePage+offset, &bucketSize, sizeof(int));
+	offset += sizeof(int);
 
+	for(int i=0; i<bucketSize; i++){
+		memcpy(nodePage+offset, &buckets[i][0].pageNum, sizeof(short));
+		offset += sizeof(short);
+		memcpy(nodePage+offset, &buckets[i][0].slotNum, sizeof(short));
+		offset += sizeof(short);
+	}
+	return rc;
 }
 
 Btree::Btree(){
 	attrLen = 0;
-	attrType = TypeInt;
+	attrType = 0;
 	rootID = NULL;
 	d = 0;
 }
@@ -392,12 +454,16 @@ RC Btree::readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node){
 	memset(buffer, 0, PAGE_SIZE);
 	RC rc = ixfileHandle.fileHandle.readPage(nodeID, buffer);
 	node.getData(buffer);
+	if(node.nodeType==Leaf)
+		node.readEntry(ixfileHandle);
 	delete[] buffer;
 	return rc;
 }
 
 RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
 	node.setData(&node);
+	if(node.nodeType==Leaf)
+		node.writeEntry(ixfileHandle);
 	RC rc = ixfileHandle.fileHandle.writePage(node.nodeID, node.nodePage);
 	return rc;
 }
@@ -412,13 +478,13 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		switch(attribute.type){
 			case TypeInt:
 				// keys, childList, RIDs
-				d = (PAGE_SIZE / sizeof(int) - 8) / 8;
+				d = (PAGE_SIZE / sizeof(int) - 10) / 8;
 				break;
 			case TypeReal:
-				d = (PAGE_SIZE / sizeof(float) - 8) / 8;
+				d = (PAGE_SIZE / sizeof(float) - 10) / 8;
 				break;
 			case TypeVarChar:
-				d = (PAGE_SIZE - sizeof(int)*8) / (2*(3*sizeof(int)+attribute.length));
+				d = (PAGE_SIZE - sizeof(int)*10) / (2*(4*sizeof(int)+attribute.length));
 				break;
 		}
 
@@ -457,23 +523,23 @@ RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 
 }
 
-int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID){
-    BtreeNode node;
-    readNode(ixfileHandle, nodeID, node);
-    int index, childIndex, childID;
-    
-    if(node.nodeType==Leaf){
-        return node.nodeID;
-    }
-    else{
-        index = node.getKeyIndex(key);
-        childIndex = node.getChildIndex(key, index);
-        childID = node.childList[childIndex];
-        return recursiveFind(ixfileHandle, key, childID);
-    }
-}
-
 int Btree::findEntryPID(IXFileHandle &ixfileHandle, const void *key){
 	return recursiveFind(ixfileHandle, key, rootID);
+}
+
+int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID){
+	BtreeNode node;
+	readNode(ixfileHandle, nodeID, node);
+	int index, childIndex, childID;
+
+	if(node.nodeType==Leaf){
+		return node.nodeID;
+	}
+	else{
+		index = node.getKeyIndex(key);
+		childIndex = node.getChildIndex(key, index);
+		childID = node.childList[childIndex];
+		return recursiveFind(ixfileHandle, key, childID);
+	}
 }
 
