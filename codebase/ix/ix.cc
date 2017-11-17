@@ -119,16 +119,15 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
 }
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
-    RC rc;
     Btree btree;
-    rc += readBtree(ixfileHandle, &btree);
+    readBtree(ixfileHandle, &btree);
     //btree.readNode(ixfileHandle,0,&node);
     recursivePrint(ixfileHandle,attribute,&btree, 0,btree.rootID);
 }
 
 void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID) const{
     BtreeNode node;
-    RC rc=btree->readNode(ixfileHandle,nodeID,node);
+    btree->readNode(ixfileHandle,nodeID,node);
     for(int i=0; i<depth; i++) printf("\t");
 
     int keySize;
@@ -365,7 +364,7 @@ void BtreeNode::setData(BtreeNode *node){
     memcpy(buffer+offset, &node->rightSibling, sizeof(int));
     offset += sizeof(int);
 
-    int size, child;
+    int size;
     size = node->childList.size();
     memcpy(buffer+offset, &size, sizeof(int));
     offset += sizeof(int);
@@ -380,7 +379,6 @@ void BtreeNode::setData(BtreeNode *node){
     offset = (9 + maxKeyNum + 1) * sizeof(int);
     memcpy(buffer+offset, &size, sizeof(int));
     for(int i=0;i<size;i++){
-        void *key;
         switch(node->attrType){
             case TypeVarChar:{
                 int varCharLen = *(int *)node->keys[i];
@@ -606,7 +604,7 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 
 RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID){
 	BtreeNode node;
-	RC rc;
+	RC rc=0;
 	int index, childIndex, childID;
 	rc += readNode(ixfileHandle, nodeID, node);
 
@@ -624,7 +622,7 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 }
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
-	RC rc;
+	RC rc=0;
 	if(rootID==0)
 		return -1;
 	int nodeID = findEntryPID(ixfileHandle, key);
