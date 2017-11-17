@@ -44,11 +44,9 @@ class BtreeNode{
 		RC readEntry(IXFileHandle &ixfileHandle);
 		RC writeEntry(IXFileHandle &ixfileHandle);
 
-	protected:
-		BtreeNode();
-		~BtreeNode();
+        BtreeNode();
+        ~BtreeNode(){};
 
-	private:
 };
 
 //	Store meta data of Btree to page 0
@@ -67,9 +65,8 @@ class Btree{
 		RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 		int findEntryPID(IXFileHandle &ixfileHandle, const void *key);
 
-	protected:
-		Btree();
-		~Btree();
+        Btree();
+        ~Btree(){};
 
 	private:
 		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID);
