@@ -536,7 +536,7 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 
 Btree::Btree(){
 	attrLen = 0;
-	attrType = Index;
+	attrType = TypeInt;
 	rootID = 0;
 	d = 0;
 }
