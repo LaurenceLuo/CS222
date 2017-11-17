@@ -141,6 +141,8 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
     int maxKeyNum=2*node.d;
     int offset = (9 + maxKeyNum + 1) * sizeof(int);
     memcpy(&keySize, node.nodePage+ offset,sizeof(int));
+    offset+=sizeof(int);
+    cout<<"offset: "<<offset<<endl;
     if(node.nodeType==Index){
         vector<int> links;
         int count=0;
@@ -307,14 +309,17 @@ void BtreeNode::getData(void *data){
         memcpy(&child, nodePage + (9 + i) * sizeof(int), sizeof(int));
         childList.push_back(child);
     }
+    cout<<"child size: "<<size<<endl;
     int maxKeyNum=2*d;
     int offset = (9 + maxKeyNum + 1) * sizeof(int);
     memcpy(&size, nodePage+ offset,sizeof(int));
     offset+=sizeof(int);
+    cout<<"key size: "<<size<<endl;
+    //cout<<"offset: "<<offset<<endl;
     for(int i=0;i<size;i++){
-        void *key;
         switch(attrType){
-            case TypeVarChar:
+            case TypeVarChar:{
+                void *key;
                 int varCharLen;
                 memcpy(&varCharLen, nodePage + offset, sizeof(int));
                 key = malloc(varCharLen + sizeof(int));
@@ -322,21 +327,29 @@ void BtreeNode::getData(void *data){
                 memcpy(key, (char*)nodePage + offset+sizeof(int), varCharLen);
                 offset += (varCharLen + sizeof(int));
                 keys.push_back(key);
+                free(key);
                 break;
-
-            case TypeInt:
+            }
+            case TypeInt:{
+                void *key;
                 key = malloc(sizeof(int));
                 memcpy(key, (char*)nodePage + offset, sizeof(int));
+                //cout<<"offset???"<<offset<<endl;
+                //cout<<"key: "<<*((int*)key)<<endl;
                 offset += sizeof(int);
                 keys.push_back(key);
+                free(key);
                 break;
-
-            case TypeReal:
+            }
+            case TypeReal:{
+                void *key;
                 key = malloc(sizeof(float));
                 memcpy(key, (char*)nodePage + offset, sizeof(float));
                 offset += sizeof(float);
                 keys.push_back(key);
+                free(key);
                 break;
+            }
         }
     }
 }
@@ -382,11 +395,11 @@ void BtreeNode::setData(BtreeNode *node){
 
     int maxKeyNum=2*node->d;
     size = node->keys.size();
-    cout<<"actual key size: "<<size<<endl;
+    //cout<<"actual key size: "<<size<<endl;
     offset = (9 + maxKeyNum + 1) * sizeof(int);
     memcpy(buffer+offset, &size, sizeof(int));
     offset+=sizeof(int);
-    cout<<"offset: "<<offset<<endl;
+    //cout<<"setData offset: "<<offset<<endl;
     for(int i=0;i<size;i++){
         switch(node->attrType){
             case TypeVarChar:{
@@ -397,11 +410,12 @@ void BtreeNode::setData(BtreeNode *node){
             }
             case TypeInt:{
                 memcpy(buffer+offset, &node->keys[i], sizeof(int));
+                cout<<"key value: "<<*((int*)node->keys[i])<<" offset: "<<offset<<endl;
                 offset += sizeof(int);
                 break;
             }
             case TypeReal:{
-            		memcpy(buffer+offset, &node->keys[i], sizeof(float));
+                memcpy(buffer+offset, &node->keys[i], sizeof(float));
                 offset += sizeof(float);
                 break;
             }
@@ -481,6 +495,7 @@ RC BtreeNode::insertLeaf(const void *key, const RID &rid){
 	RidList ridList;
 	ridList.push_back(rid);
 	buckets.insert(buckets.begin()+index, ridList);
+    //cout<<"rid.pageNum: "<<buckets[0][0].pageNum<< " rid.slotNum: "<<buckets[0][0].slotNum<<endl;
 	return 0;
 }
 
@@ -559,7 +574,7 @@ RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeT
     node.d = d;
     node.leftSibling = 0;
     node.rightSibling = 0;
-	node.nodeID = ixfileHandle.fileHandle.getNumberOfPages()-1;
+	node.nodeID = ixfileHandle.fileHandle.getNumberOfPages();
 	RC rc = ixfileHandle.fileHandle.appendPage(node.nodePage);
 	ixfileHandle.ixAppendPageCounter += 1;
 	return rc;
@@ -573,17 +588,19 @@ RC Btree::readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node){
 	node.getData(buffer);
 	if(node.nodeType==Leaf)
 		node.readEntry(ixfileHandle);
+    cout<<"node.keys: "<<*(int*)node.keys[0]<<endl;
 	delete[] buffer;
 	return rc;
 }
 
 RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
 	node.setData(&node);
-    cout<<"node.nodeType: "<<node.nodeType<<endl;
+    //cout<<"node.nodeType: "<<node.nodeType<<endl;
+    //cout<<"node.nodeID: "<<node.nodeID<<endl;
 	if(node.nodeType==Leaf)
 		node.writeEntry(ixfileHandle);
-	RC rc = ixfileHandle.fileHandle.writePage(node.nodeID, node.nodePage);//Or not write successfully
-	ixfileHandle.ixWritePageCounter += 1;
+	RC rc = ixfileHandle.fileHandle.writePage(node.nodeID, node.nodePage);
+    ixfileHandle.ixWritePageCounter += 1;
 	return rc;
 }
 
@@ -612,6 +629,7 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		rc += createNode(ixfileHandle, root, Leaf);
         root.insertLeaf(key, rid);
 		rc += writeNode(ixfileHandle, root);
+        //cout<<"root.keys[0]: "<<(*(int*)root.keys[0])<<endl;
 		rootID = root.nodeID;
 	}
 	else{
