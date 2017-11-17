@@ -96,7 +96,7 @@ class IndexManager {
         // Delete an entry from the given index that is indicated by the given ixfileHandle.
         RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 
-        RC readBtree(IXFileHandle &ixfileHandle, Btree *btree) const;
+        RC readBtree(IXFileHandle &ixfileHandle, Btree *btree);
         RC writeBtree(IXFileHandle &ixfileHandle, const Btree *btree);
 
         // Initialize and IX_ScanIterator to support a range search
@@ -110,7 +110,7 @@ class IndexManager {
 
         // Print the B+ tree in pre-order (in a JSON record format)
         void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
-        void recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute, Btree *btree, int depth, int nodeID)const;
+        void recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute, Btree *btree, BtreeNode *node, int depth);
 
     protected:
         IndexManager();

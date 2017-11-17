@@ -68,7 +68,7 @@ RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
     return rc;
 }
 
-RC IndexManager::readBtree(IXFileHandle &ixfileHandle, Btree *btree) const{
+RC readBtree(IXFileHandle &ixfileHandle, Btree *btree){
 	char *buffer = new char[PAGE_SIZE];
 	memset(buffer, 0, PAGE_SIZE);
 	RC rc = ixfileHandle.fileHandle.readPage(0, buffer);
@@ -86,7 +86,7 @@ RC IndexManager::readBtree(IXFileHandle &ixfileHandle, Btree *btree) const{
     return rc;
 }
 
-RC IndexManager::writeBtree(IXFileHandle &ixfileHandle, const Btree *btree){
+RC writeBtree(IXFileHandle &ixfileHandle, const Btree *btree){
 	char *buffer = new char[PAGE_SIZE];
 	memset(buffer, 0, PAGE_SIZE);
 
@@ -124,9 +124,9 @@ void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attri
     recursivePrint(ixfileHandle,attribute,&btree, 0,btree.rootID);
 }
 
-void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID) const{
+void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID){
     BtreeNode node;
-    RC rc=btree->readNode(ixfileHandle,nodeID,node);
+    RC rc=btree.readNode(ixfileHandle,nodeID,&node);
     for(int i=0; i<depth; i++) printf("\t");
     
     int keySize;
@@ -143,18 +143,18 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             printf("\"");
             switch(node.attrType){
                 case TypeInt:
-                    printf("%d",*((int*)node.keys[count]));
+                    printf("%d",*((int*)node.key[count]));
                     offset+=sizeof(int);
                     break;
                 case TypeReal:
-                    printf("%f",*((float*)node.keys[count]));
+                    printf("%f",*((int*)node.key[count]));
                     offset+=sizeof(int);
                     break;
                 case TypeVarChar:
                     int varCharLen;
                     memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
-                    //assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    string sa( (char*)node.keys[count] , varCharLen);
+                    assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
+                    string sa( (char*)node.key[count] , varCharLen);
                     printf("%s",sa.c_str());
                     offset+=sizeof(int)+varCharLen;
                     break;
@@ -170,7 +170,7 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             printf("\t");
         printf("\"children\":[");
         for( int i=0; i<links.size(); i++){
-            recursivePrint(ixfileHandle,attribute,btree,depth+1,links[i]);
+            printBtree(ixfileHandle,attribute,&btree,depth+1,links[i]);
             if( i < links.size() - 1 ) printf(",\n");
         }
         printf("]}\n");
@@ -184,18 +184,18 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             //print keys
             switch(node.attrType){
                 case TypeInt:
-                    printf("%d",*((int*)node.keys[count]));
+                    printf("%d",*((int*)node.key[count]));
                     offset+=sizeof(int);
                     break;
                 case TypeReal:
-                    printf("%f",*((float*)node.keys[count]));
+                    printf("%f",*((int*)node.key[count]));
                     offset+=sizeof(int);
                     break;
                 case TypeVarChar:
                     int varCharLen;
                     memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
-                    //assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    string sa( (char*)node.keys[count] , varCharLen);
+                    assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
+                    string sa( (char*)node.key[count] , varCharLen);
                     printf("%s",sa.c_str());
                     offset+=sizeof(int)+varCharLen;
                     break;
@@ -263,8 +263,8 @@ BtreeNode::BtreeNode(){
 	leftSibling = 0;
 	rightSibling = 0;
 	d = 0;
-	nodeType = Index;
-	attrType = TypeInt;
+	nodeType = 0;
+	attrType = 0;
 }
 
 void BtreeNode::getData(void *data){
@@ -380,12 +380,11 @@ void BtreeNode::setData(BtreeNode *node){
     for(int i=0;i<size;i++){
         void *key;
         switch(node->attrType){
-            case TypeVarChar:{
+            case TypeVarChar:
                 int varCharLen = *(int *)node->keys[i];
                 memcpy(buffer+offset, (char *)node->keys[i], sizeof(int)+varCharLen);
                 offset += (varCharLen + sizeof(int));
                 break;
-            }
 
             case TypeInt:
                 memcpy(buffer+offset, &node->keys[i], sizeof(int));
@@ -423,13 +422,13 @@ RC BtreeNode::compareKey(const void *key, const void *value, AttrType attrType){
 		}
 		case TypeVarChar: {
 			int keyLen, valueLen;
-			memcpy(&keyLen, (char*)key, sizeof(int));
+			memcpy(&keyLen, key, sizeof(int));
 			char *keyStr = new char[keyLen];
-			memcpy(&keyStr, (char*)key+sizeof(int), keyLen);
+			memcpy(&keyStr, key+sizeof(int), keyLen);
 
-			memcpy(&valueLen, (char*)value, sizeof(int));
+			memcpy(&valueLen, value, sizeof(int));
 			char *valueStr = new char[valueLen];
-			memcpy(&valueStr, (char*)value+sizeof(int), valueLen);
+			memcpy(&valueStr, value+sizeof(int), valueLen);
 
 			if(strcmp(keyStr, valueStr)==0) result=0;
 			else if(strcmp(keyStr, valueStr)>0) result=1;
@@ -480,7 +479,7 @@ RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
 	buckets.clear();
 	int offset, bucketSize;
 	RID rid;
-	switch(attrType){
+	switch(nodeType){
 		case TypeInt:
 			offset = 11*sizeof(int) + 16 * d;
 			break;
@@ -508,7 +507,7 @@ RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
 RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 	RC rc = 0;
 	int offset;
-	switch(attrType){
+	switch(nodeType){
 		case TypeInt:
 			offset = 11*sizeof(int) + 16 * d;
 			break;
@@ -533,9 +532,9 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 }
 
 Btree::Btree(){
-	attrLen = Index;
-	attrType = TypeInt;
-	rootID = 0;
+	attrLen = 0;
+	attrType = 0;
+	rootID = NULL;
 	d = 0;
 }
 
@@ -618,7 +617,7 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 }
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
-    return 0;
+
 }
 
 int Btree::findEntryPID(IXFileHandle &ixfileHandle, const void *key){
