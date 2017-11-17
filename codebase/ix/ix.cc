@@ -13,6 +13,8 @@ IndexManager* IndexManager::instance()
 
 IndexManager::IndexManager()
 {
+    if(!_pfm_manager)
+        _pfm_manager=PagedFileManager::instance();
 }
 
 IndexManager::~IndexManager()
@@ -21,19 +23,16 @@ IndexManager::~IndexManager()
 
 RC IndexManager::createFile(const string &fileName)
 {
-    PagedFileManager *_pfm_manager=PagedFileManager::instance();
 	return _pfm_manager->createFile(fileName);
 }
 
 RC IndexManager::destroyFile(const string &fileName)
 {
-    PagedFileManager *_pfm_manager=PagedFileManager::instance();
 	return _pfm_manager->destroyFile(fileName);
 }
 
 RC IndexManager::openFile(const string &fileName, IXFileHandle &ixfileHandle)
 {
-    PagedFileManager *_pfm_manager=PagedFileManager::instance();
     if(ixfileHandle.fileHandle._isOpen())
         return -1;
     if(_pfm_manager->openFile(fileName,ixfileHandle.fileHandle)!=0){
@@ -46,7 +45,6 @@ RC IndexManager::openFile(const string &fileName, IXFileHandle &ixfileHandle)
 
 RC IndexManager::closeFile(IXFileHandle &ixfileHandle)
 {
-    PagedFileManager *_pfm_manager=PagedFileManager::instance();
 	return _pfm_manager->closeFile(ixfileHandle.fileHandle);
 }
 

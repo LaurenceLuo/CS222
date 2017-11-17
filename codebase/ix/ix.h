@@ -117,7 +117,7 @@ class IndexManager {
 
     private:
         static IndexManager *_index_manager;
-        static PagedFileManager *_pfm_manager;
+        PagedFileManager *_pfm_manager;
 };
 
 
