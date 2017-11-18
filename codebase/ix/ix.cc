@@ -714,12 +714,12 @@ RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 	int nodeID = findEntryPID(ixfileHandle, key);
 	BtreeNode node;
 	rc += readNode(ixfileHandle, nodeID, node);
+    //lazy delete
 	if(node.deleteMark==1)
 		return -1;
-	// TODO
-	//else{
-
-	//}
+	else
+        node.deleteMark=1;
+	rc += writeNode(ixfileHandle, node);
 	return rc;
 }
 
