@@ -34,7 +34,7 @@ class BtreeNode{
 
 		void getData(void *data);
 		void setData(BtreeNode *node);
-		RC compareKey(const void *key, const void *value, AttrType attrType);
+		static RC compareKey(const void *key, const void *value, AttrType attrType);
 		int getKeyIndex(const void *key);
 		int getChildIndex(const void *key, int keyIndex);
 		RC insertIndex(const void *key, const int &childNodeID);
@@ -56,6 +56,8 @@ class Btree{
 		AttrType attrType;
 		int d;
 		int attrLen;
+        int firstLeafID;
+        int lastLeafID;
 
 		RC createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType);
 		RC readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node);
@@ -121,6 +123,25 @@ class IndexManager {
         PagedFileManager *_pfm_manager;
 };
 
+class IXFileHandle {
+public:
+    
+    // variables to keep counter for each operation
+    unsigned ixReadPageCounter;
+    unsigned ixWritePageCounter;
+    unsigned ixAppendPageCounter;
+    FileHandle fileHandle;
+    
+    // Constructor
+    IXFileHandle();
+    
+    // Destructor
+    ~IXFileHandle();
+    
+    // Put the current counter values of associated PF FileHandles into variables
+    RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
+    
+};
 
 class IX_ScanIterator {
     public:
@@ -131,33 +152,34 @@ class IX_ScanIterator {
         // Destructor
         ~IX_ScanIterator();
 
+        RC initialization(IXFileHandle &ixfileHandle,
+            const Attribute &attribute,
+            const void *lowKey,
+            const void *highKey,
+            bool lowKeyInclusive,
+            bool highKeyInclusive); // a list of projected attributes
         // Get next matching entry
         RC getNextEntry(RID &rid, void *key);
 
         // Terminate index scan
         RC close();
+    
+        Btree _btree;
+    
+    private:
+    IXFileHandle _ixfileHandle;
+    Attribute _attribute;
+    const void *_lowKey;
+    const void *_highKey;
+    bool _lowKeyInclusive;
+    bool _highKeyInclusive;
+    
+    BtreeNode _currNode;
+    int _currNodeID;
+    int _currIndex;
+    
 };
 
 
-
-class IXFileHandle {
-    public:
-
-    // variables to keep counter for each operation
-    unsigned ixReadPageCounter;
-    unsigned ixWritePageCounter;
-    unsigned ixAppendPageCounter;
-    FileHandle fileHandle;
-
-    // Constructor
-    IXFileHandle();
-
-    // Destructor
-    ~IXFileHandle();
-
-	// Put the current counter values of associated PF FileHandles into variables
-	RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
-
-};
 
 #endif

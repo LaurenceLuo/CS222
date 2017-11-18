@@ -122,7 +122,9 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
         bool        	highKeyInclusive,
         IX_ScanIterator &ix_ScanIterator)
 {
-    return -1;
+    RC rc = readBtree(ixfileHandle, &ix_ScanIterator._btree);
+    rc=ix_ScanIterator.initialization(ixfileHandle,attribute,lowKey,highKey,lowKeyInclusive,highKeyInclusive);
+    return rc;
 }
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
@@ -233,14 +235,77 @@ IX_ScanIterator::~IX_ScanIterator()
 {
 }
 
+RC IX_ScanIterator::initialization(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *lowKey, const void *highKey, bool lowKeyInclusive, bool highKeyInclusive){
+    _ixfileHandle=ixfileHandle;
+    _ixfileHandle.fileHandle.getNumberOfPages();
+    _attribute=attribute;
+    _lowKey=lowKey;
+    _highKey=highKey;
+    _lowKeyInclusive=lowKeyInclusive;
+    _highKeyInclusive=highKeyInclusive;
+    _currNodeID=-1;
+    return 0;
+}
+
+
 RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 {
-    return -1;
+    int smallerThanLK=1;//=1 means key>lowKey
+    int largerThanHK=-1;//=-1 means key<highKey
+    if(_lowKey!=NULL){
+        smallerThanLK=BtreeNode::compareKey(key,_lowKey,_btree.attrType);
+        if(smallerThanLK<0||(smallerThanLK==0&&!_lowKeyInclusive))
+            return IX_EOF;
+    }
+    if(_highKey!=NULL){
+        largerThanHK=BtreeNode::compareKey(key,_highKey,_btree.attrType);
+        if(largerThanHK>0||(largerThanHK==0&&!_highKeyInclusive))
+            return IX_EOF;
+    }
+    if(_currNodeID==0)
+        return IX_EOF;
+    else if(_currNodeID==-1){
+        if(_lowKey!=NULL){
+            _currNodeID=_btree.findEntryPID(_ixfileHandle,_lowKey);
+            _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
+            _currIndex=_currNode.getKeyIndex(_lowKey);
+        }
+        else{
+            _currNodeID=_btree.firstLeafID;
+            _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
+            _currIndex=0;
+        }
+    }
+    else{
+        _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
+    }
+
+    if(_highKey!=NULL&&BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0){
+        return IX_EOF;
+    }
+    //DeleteMark not considered yet.
+    rid=_currNode.buckets[_currIndex][0];//only consider the first RID
+    
+    if(_currIndex<_currNode.keys.size()-1){
+        _currIndex++;
+    }
+    else {
+        _currIndex=0;
+        _currNodeID=_currNode.rightSibling;
+    }
+    
+    return 0;
+    //Duplicate keys not considered yet.
+    
 }
 
 RC IX_ScanIterator::close()
 {
-    return -1;
+    if((char*)_lowKey)
+        free((char*)_lowKey);
+    if((char*)_highKey)
+        free((char*)_highKey);
+    return 0;
 }
 
 
@@ -550,6 +615,8 @@ Btree::Btree(){
 	attrType = TypeInt;
 	rootID = 0;
 	d = 0;
+    firstLeafID=1;
+    lastLeafID=1;
 }
 
 RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType){
