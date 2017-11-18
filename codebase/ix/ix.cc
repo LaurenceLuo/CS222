@@ -42,10 +42,8 @@ RC IndexManager::openFile(const string &fileName, IXFileHandle &ixfileHandle)
 {
     if(ixfileHandle.fileHandle._isOpen())
         return -1;
-    if(_pfm_manager->openFile(fileName,ixfileHandle.fileHandle)!=0){
-        cout<< "File " << fileName << " open fail!" << endl << endl;
+    if(_pfm_manager->openFile(fileName,ixfileHandle.fileHandle)!=0)
         return -1;
-    }
     ixfileHandle.fileHandle.getNumberOfPages();
     return 0;
 }
@@ -122,6 +120,8 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
         bool        	highKeyInclusive,
         IX_ScanIterator &ix_ScanIterator)
 {
+    if(!ixfileHandle.fileHandle._isOpen())
+        return -1;
     RC rc = readBtree(ixfileHandle, &ix_ScanIterator._btree);
     rc=ix_ScanIterator.initialization(ixfileHandle,attribute,lowKey,highKey,lowKeyInclusive,highKeyInclusive);
     return rc;
