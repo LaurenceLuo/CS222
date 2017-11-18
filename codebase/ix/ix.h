@@ -71,7 +71,8 @@ class Btree{
         ~Btree(){};
 
 	private:
-		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID);
+		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID, int parentID, void *copyUpKey);
+		RC splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &newNode, int parentID, const void *copyUpKey);
 		int recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID);
 };
 
@@ -124,23 +125,23 @@ class IndexManager {
 };
 
 class IXFileHandle {
-public:
-    
-    // variables to keep counter for each operation
-    unsigned ixReadPageCounter;
-    unsigned ixWritePageCounter;
-    unsigned ixAppendPageCounter;
-    FileHandle fileHandle;
-    
-    // Constructor
-    IXFileHandle();
-    
-    // Destructor
-    ~IXFileHandle();
-    
-    // Put the current counter values of associated PF FileHandles into variables
-    RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
-    
+	public:
+
+		// variables to keep counter for each operation
+		unsigned ixReadPageCounter;
+		unsigned ixWritePageCounter;
+		unsigned ixAppendPageCounter;
+		FileHandle fileHandle;
+
+		// Constructor
+		IXFileHandle();
+
+		// Destructor
+		~IXFileHandle();
+
+		// Put the current counter values of associated PF FileHandles into variables
+		RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
+
 };
 
 class IX_ScanIterator {
@@ -163,21 +164,21 @@ class IX_ScanIterator {
 
         // Terminate index scan
         RC close();
-    
+
         Btree _btree;
-    
+
     private:
-    IXFileHandle _ixfileHandle;
-    Attribute _attribute;
-    const void *_lowKey;
-    const void *_highKey;
-    bool _lowKeyInclusive;
-    bool _highKeyInclusive;
-    
-    BtreeNode _currNode;
-    int _currNodeID;
-    int _currIndex;
-    
+		IXFileHandle _ixfileHandle;
+		Attribute _attribute;
+		const void *_lowKey;
+		const void *_highKey;
+		bool _lowKeyInclusive;
+		bool _highKeyInclusive;
+
+		BtreeNode _currNode;
+		int _currNodeID;
+		int _currIndex;
+
 };
 
 

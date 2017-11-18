@@ -285,7 +285,7 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
     }
     //DeleteMark not considered yet.
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID
-    
+
     if(_currIndex<_currNode.keys.size()-1){
         _currIndex++;
     }
@@ -293,10 +293,10 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         _currIndex=0;
         _currNodeID=_currNode.rightSibling;
     }
-    
+
     return 0;
     //Duplicate keys not considered yet.
-    
+
 }
 
 RC IX_ScanIterator::close()
@@ -346,27 +346,20 @@ void BtreeNode::getData(void *data){
 
     memcpy(&nodeID, nodePage, sizeof(int));
 
-    //nodeType=Index;
     memcpy(&nodeType, nodePage + sizeof(int), sizeof(int));
-    
-    //attrType=TypeInt;
+
     memcpy(&attrType, nodePage + 2 * sizeof(int), sizeof(int));
 
-    //int attrLen = 0;
     memcpy(&attrLen, nodePage + 3 * sizeof(int), sizeof(int));
 
-    //int deleteMark = 0;
     memcpy(&deleteMark, nodePage + 4 * sizeof(int), sizeof(int));
 
-    //d=0;
     memcpy(&d, nodePage + 5 * sizeof(int), sizeof(int));
-    
-    //leftSibling = 0;
+
     memcpy(&leftSibling, nodePage + 6 * sizeof(int), sizeof(int));
 
-    //rightSibling = 0;
     memcpy(&rightSibling, nodePage + 7 * sizeof(int), sizeof(int));
-    
+
     int size, child;
     memcpy(&size, nodePage + 8 * sizeof(int), sizeof(int));
     for (int i = 0; i < size; i++){
@@ -683,28 +676,174 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		rootID = root.nodeID;
 	}
 	else{
-		recursiveInsert(ixfileHandle, key, rid, rootID);
+		int parentID = -1;
+		void *copyUpKey;
+		switch(attrType){
+			case TypeInt:{
+				copyUpKey = malloc(sizeof(int));
+				break;
+			}
+			case TypeReal:{
+				copyUpKey = malloc(sizeof(float));
+				break;
+			}
+			case TypeVarChar:{
+				copyUpKey = malloc(sizeof(int)+attrLen);
+				break;
+			}
+		}
+		recursiveInsert(ixfileHandle, key, rid, rootID, parentID, copyUpKey);
+		free(copyUpKey);
 	}
 	return rc;
 }
 
-RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID){
+RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID, int parentID, void *copyUpKey){
 	BtreeNode node;
 	RC rc=0;
 	int index, childIndex, childID;
 	rc += readNode(ixfileHandle, nodeID, node);
-    
+
 	if(node.nodeType==Leaf){
-		node.insertLeaf(key, rid);
-		rc += writeNode(ixfileHandle, node);
+		cout << "keys.size(): " << node.keys.size() << endl;
+		cout << "d: " << d << endl;
+		if(node.keys.size()==2*d){
+			// node is full, need to split
+			BtreeNode newNode;
+			rc += createNode(ixfileHandle, newNode, Leaf);
+			rc += splitNode(ixfileHandle, node, newNode, nodeID, copyUpKey);
+
+			int index = node.getKeyIndex(key);
+			if(index > d){
+				newNode.insertLeaf(key, rid);
+			}
+			else{
+				node.insertLeaf(key, rid);
+			}
+
+			cout << "full nodeID: " << node.nodeID << endl;
+			rc += writeNode(ixfileHandle, node);
+			rc += writeNode(ixfileHandle, newNode);
+
+			// if node is rootNode, then we need to create new root
+			if(node.nodeID == rootID){
+				// get copyUpKey
+				switch(newNode.nodeType){
+					case TypeInt: {
+						memcpy(&copyUpKey, newNode.keys[0], sizeof(int));
+						break;
+					}
+					case TypeReal: {
+						memcpy(&copyUpKey, newNode.keys[0], sizeof(float));
+						break;
+					}
+					case TypeVarChar: {
+						int varCharLen;
+						memcpy(&varCharLen, newNode.keys[0], sizeof(int));
+						memcpy(&copyUpKey, newNode.keys[0], sizeof(int)+varCharLen);
+						break;
+					}
+				}
+				BtreeNode rootNode;
+				rc += createNode(ixfileHandle, rootNode, Index);
+				// update rootID
+				rootID = rootNode.nodeID;
+				// update rootNode
+				rootNode.keys.push_back(copyUpKey);
+				rootNode.childList.push_back(node.nodeID);
+				rootNode.childList.push_back(newNode.nodeID);
+				rc += writeNode(ixfileHandle, rootNode);
+			}
+		}
+		else{
+			node.insertLeaf(key, rid);
+			rc += writeNode(ixfileHandle, node);
+		}
 	}
 	else{ // nodeType = Index
 		index = node.getKeyIndex(key);
 		childIndex = node.getChildIndex(key, index);
 		childID = node.childList[childIndex];
-		rc += recursiveInsert(ixfileHandle, key, rid, childID);
+
+		recursiveInsert(ixfileHandle, key, rid, childID, node.nodeID, copyUpKey);
+
+		if(node.keys.size()==2*d){
+			// node is full, need to split
+			BtreeNode newNode;
+			rc += createNode(ixfileHandle, newNode, Index);
+			rc += splitNode(ixfileHandle, node, newNode, nodeID, copyUpKey);
+
+			int index = node.getKeyIndex(key);
+			if(index > d){
+				newNode.insertIndex(key, childID);
+			}
+			else{
+				node.insertIndex(key, childID);
+			}
+
+			rc += writeNode(ixfileHandle, node);
+			rc += writeNode(ixfileHandle, newNode);
+
+			if(node.nodeID == rootID){
+				BtreeNode rootNode;
+				rc += createNode(ixfileHandle, rootNode, Index);
+				// update rootID
+				rootID = rootNode.nodeID;
+				// update rootNode
+				rootNode.keys.push_back(copyUpKey);
+				rootNode.childList.push_back(node.nodeID);
+				rootNode.childList.push_back(newNode.nodeID);
+				rc += writeNode(ixfileHandle, rootNode);
+			}
+
+		}
+		else{
+			node.insertIndex(key, childID);
+			rc += writeNode(ixfileHandle, node);
+		}
 	}
 	return rc;
+}
+
+RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &newNode, int parentID, const void* copyUpKey){
+	RC rc = 0;
+
+	if(oldNode.nodeType==Leaf){
+		for(int i=0; i<d; i++){
+			// move last half keys from oldNode to newNode
+			newNode.keys.push_back(oldNode.keys[d+i]);
+			newNode.childList.push_back(oldNode.childList[d+i]);
+			newNode.buckets.push_back(oldNode.buckets[d+i]);
+		}
+		// remove last half keys in oldNode
+		oldNode.keys.erase(oldNode.keys.begin()+d, oldNode.keys.end());
+		oldNode.childList.erase(oldNode.childList.begin()+d, oldNode.childList.end());
+		oldNode.buckets.erase(oldNode.buckets.begin()+d, oldNode.buckets.end());
+
+		// update sibling
+		if(oldNode.rightSibling != 0){
+			BtreeNode originNextOldNode;
+			rc += readNode(ixfileHandle, oldNode.rightSibling, originNextOldNode);
+			originNextOldNode.leftSibling = newNode.nodeID;
+			rc += writeNode(ixfileHandle, originNextOldNode);
+		}
+		newNode.rightSibling = oldNode.rightSibling;
+		oldNode.rightSibling = newNode.nodeID;
+		newNode.leftSibling = oldNode.nodeID;
+		return rc;
+	}
+	else{ // node is Index
+		for(int i=0; i<d; i++){
+			// move last half keys from oldNode to newNode
+			newNode.keys.push_back(oldNode.keys[d+i]);
+			newNode.childList.push_back(oldNode.childList[d+i]);
+		}
+		// remove last half keys in oldNode
+		oldNode.keys.erase(oldNode.keys.begin()+d, oldNode.keys.end());
+		oldNode.childList.erase(oldNode.childList.begin()+d, oldNode.childList.end());
+
+		return rc;
+	}
 }
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
