@@ -267,6 +267,8 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
     else if(_currNodeID==-1){
         if(_lowKey!=NULL){
             _currNodeID=_btree.findEntryPID(_ixfileHandle,_lowKey);
+            cout << "_currNodeID: " << _currNodeID << endl;
+            _currNodeID = 4;
             _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
             _currIndex=_currNode.getKeyIndex(_lowKey);
         }
@@ -284,9 +286,8 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         return IX_EOF;
     }
     //DeleteMark not considered yet.
-    //cout<<"_currNodeID: "<<_currNodeID<<" _currNode.keys.size(): "<<_currNode.keys.size()<<" _currNode.buckets.size(): "<< _currNode.buckets.size()<<endl;
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID
-    //cout<<"_currIndex: "<<_currIndex<<" rid: "<<rid.pageNum<<" "<<rid.slotNum<<endl;
+
     if(_currIndex<_currNode.buckets.size()-1){
         _currIndex++;
     }
@@ -405,7 +406,6 @@ void BtreeNode::getData(void *data){
             }
         }
     }
-    //cout<<"key size from getData: "<<keys.size()<<endl;
 }
 
 void BtreeNode::setData(BtreeNode *node){
@@ -599,7 +599,17 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 	memcpy(nodePage+offset, &bucketSize, sizeof(int));
 	offset += sizeof(int);
 
+	// debug info
+	//cout << "check RID" << endl;
+	//cout << "bucketSize: " << bucketSize << endl;
 	for(int i=0; i<bucketSize; i++){
+		/*
+		if(i%50==0){
+			cout << "buckets offset: " << offset << endl;
+			cout << "nodeID: " << nodeID << endl;
+			cout << "RID: pageNum: " << buckets[i][0].pageNum << " slotNum: " << buckets[i][0].slotNum << endl;
+		}
+		*/
 		memcpy(nodePage+offset, &buckets[i][0].pageNum, sizeof(unsigned));
 		offset += sizeof(unsigned);
 		memcpy(nodePage+offset, &buckets[i][0].slotNum, sizeof(unsigned));
@@ -646,10 +656,10 @@ RC Btree::readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node){
 }
 
 RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
+	//cout << "writeNode nodeID: " << node.nodeID << endl;
 	node.setData(&node);
 	if(node.nodeType==Leaf)
 		node.writeEntry(ixfileHandle);
-	//cout << "writeNode nodeID: " << node.nodeID << endl;
 	RC rc = ixfileHandle.fileHandle.writePage(node.nodeID, node.nodePage);
     ixfileHandle.ixWritePageCounter += 1;
 	return rc;
@@ -679,6 +689,7 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		BtreeNode root;
 		rc += createNode(ixfileHandle, root, Leaf);
         root.insertLeaf(key, rid);
+        //cout << "keys.size(): " << root.keys.size() << endl;
 		rc += writeNode(ixfileHandle, root);
 		rootID = root.nodeID;
 	}
@@ -712,25 +723,33 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 	RC rc=0;
 	int index, childIndex, childID;
 	rc += readNode(ixfileHandle, nodeID, node);
-	//cout << "nodeType: " << node.nodeType << endl;
 
 	if(node.nodeType==Leaf){
-		//cout << "keys.size(): " << node.keys.size() << endl;
-		//cout << "d: " << d << endl;
+		// debug info
+
+		cout << "check node" << endl;
+		cout << "nodeID: " << node.nodeID << endl;
+		cout << "keys.size(): " << node.keys.size() << endl;
+		//cout << "nodeType: " << node.nodeType << endl;
+		//for(int i=0; i<node.keys.size(); i++){
+		//	cout << "node.key: " << *(int*) node.keys[i] << endl;
+		//}
+
+
 		if(node.keys.size()==2*d){
 			// node is full, need to split
 			cout << "full nodeID: " << nodeID << endl;
 			BtreeNode newNode;
 			rc += createNode(ixfileHandle, newNode, Leaf);
 			rc += splitNode(ixfileHandle, node, newNode, nodeID, copyUpKey);
-			//cout << "split suc" << endl;
+
 
 			int index = node.getKeyIndex(key);
-			if(index > d){
-				newNode.insertLeaf(key, rid);
+			if(index < d){
+				node.insertLeaf(key, rid);
 			}
 			else{
-				node.insertLeaf(key, rid);
+				newNode.insertLeaf(key, rid);
 			}
 
 			rc += writeNode(ixfileHandle, node);
@@ -738,6 +757,13 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 			split = true;
 			// TODO
 			parentID = newNode.nodeID;
+
+			// debug info
+			cout << "check split" << endl;
+			cout << "oldNodeID: " << node.nodeID << endl;
+			cout << "newNodeID: " << newNode.nodeID << endl;
+			cout << "oldNode first key: " << *(int*)node.keys[0] << " last key: " << *(int*)node.keys[node.keys.size()-1] << endl;
+			cout << "newNode first key: " << *(int*)newNode.keys[0] << " last key: " << *(int*)newNode.keys[newNode.keys.size()-1] << endl;
 
 			// get copyUpKey
 			switch(newNode.attrType){
@@ -838,19 +864,22 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
 	RC rc = 0;
 
 	if(oldNode.nodeType==Leaf){
-		//cout << "keys.size: " << oldNode.keys.size() << endl;
-		//cout << "buckets size: " << oldNode.buckets.size() << endl;
+		// debug info
+		/*
+		cout << "split info" << endl;
+		cout << "oldNodeID: " << oldNode.nodeID << endl;
+		cout << "newNodeID: " << newNode.nodeID << endl;
+		cout << "keys.size: " << oldNode.keys.size() << endl;
+		cout << "buckets size: " << oldNode.buckets.size() << endl;
+		*/
 		for(int i=0; i<d; i++){
 			// move last half keys from oldNode to newNode
-			//cout << "index: " << d+i << endl;
 			newNode.keys.push_back(oldNode.keys[d+i]);
 			newNode.buckets.push_back(oldNode.buckets[d+i]);
 		}
-		//cout << "newNode data get" << endl;
 		// remove last half keys in oldNode
 		oldNode.keys.erase(oldNode.keys.begin()+d, oldNode.keys.end());
 		oldNode.buckets.erase(oldNode.buckets.begin()+d, oldNode.buckets.end());
-		//cout << "oldNode erase data" << endl;
 
 		// update sibling
 		if(oldNode.rightSibling != 0){
@@ -862,6 +891,13 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
 		newNode.rightSibling = oldNode.rightSibling;
 		oldNode.rightSibling = newNode.nodeID;
 		newNode.leftSibling = oldNode.nodeID;
+		// debug info
+		/*
+		cout << "check sibling" << endl;
+		cout << "oldNode left: " << oldNode.leftSibling << " right: " << oldNode.rightSibling << endl;
+		cout << "newNode left: " << newNode.leftSibling << " right: " << newNode.rightSibling << endl;
+		*/
+
 		return rc;
 	}
 	else{ // node is Index
@@ -910,6 +946,11 @@ int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID
 		index = node.getKeyIndex(key);
 		childIndex = node.getChildIndex(key, index);
 		childID = node.childList[childIndex];
+		// debug info
+		cout << "check find" << endl;
+		cout << "index: " << index << endl;
+		cout << "childIndex: " << childIndex << endl;
+		cout << "childID: " << childID << endl;
 		return recursiveFind(ixfileHandle, key, childID);
 	}
 }
