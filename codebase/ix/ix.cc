@@ -284,9 +284,10 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         return IX_EOF;
     }
     //DeleteMark not considered yet.
+    //cout<<"_currNodeID: "<<_currNodeID<<" _currNode.keys.size(): "<<_currNode.keys.size()<<" _currNode.buckets.size(): "<< _currNode.buckets.size()<<endl;
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID
-
-    if(_currIndex<_currNode.keys.size()-1){
+    //cout<<"_currIndex: "<<_currIndex<<" rid: "<<rid.pageNum<<" "<<rid.slotNum<<endl;
+    if(_currIndex<_currNode.buckets.size()-1){
         _currIndex++;
     }
     else {
@@ -404,6 +405,7 @@ void BtreeNode::getData(void *data){
             }
         }
     }
+    //cout<<"key size from getData: "<<keys.size()<<endl;
 }
 
 void BtreeNode::setData(BtreeNode *node){
@@ -647,7 +649,7 @@ RC Btree::writeNode(IXFileHandle &ixfileHandle, BtreeNode &node){
 	node.setData(&node);
 	if(node.nodeType==Leaf)
 		node.writeEntry(ixfileHandle);
-	cout << "writeNode nodeID: " << node.nodeID << endl;
+	//cout << "writeNode nodeID: " << node.nodeID << endl;
 	RC rc = ixfileHandle.fileHandle.writePage(node.nodeID, node.nodePage);
     ixfileHandle.ixWritePageCounter += 1;
 	return rc;
