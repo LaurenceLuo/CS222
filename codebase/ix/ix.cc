@@ -252,16 +252,19 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 {
     int smallerThanLK=1;//=1 means key>lowKey
     int largerThanHK=-1;//=-1 means key<highKey
-    if(_lowKey!=NULL){
+    /*if(_lowKey!=NULL){
         smallerThanLK=BtreeNode::compareKey(key,_lowKey,_btree.attrType);
         if(smallerThanLK<0||(smallerThanLK==0&&!_lowKeyInclusive))
             return IX_EOF;
-    }
-    if(_highKey!=NULL){
+    }*/
+    /*if(_highKey!=NULL){
         largerThanHK=BtreeNode::compareKey(key,_highKey,_btree.attrType);
-        if(largerThanHK>0||(largerThanHK==0&&!_highKeyInclusive))
+        if(largerThanHK>0||(largerThanHK==0&&!_highKeyInclusive)){
+            cout<<"here??? largerThanHK"<<largerThanHK<<endl;
+            cout<<"key: "<<*(float*)key<<" highKey: "<<*(float*)_highKey<<endl;
             return IX_EOF;
-    }
+        }
+    }*/
     if(_currNodeID==0)
         return IX_EOF;
     else if(_currNodeID==-1){
@@ -279,13 +282,14 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
     else{
         _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
     }
-
+    cout<<"_currNode.keys[_currIndex]: "<<*(float*)_currNode.keys[_currIndex]<<" _highKey: "<<*(float*)_highKey<<endl;
+    //cout<<" compareKey: "<<BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)<<endl;
     if(_highKey!=NULL&&BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0){
         return IX_EOF;
     }
     //DeleteMark not considered yet.
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID
-
+    
     if(_currIndex<_currNode.buckets.size()-1){
         _currIndex++;
     }
@@ -725,9 +729,9 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 	if(node.nodeType==Leaf){
 		// debug info
 
-		cout << "check node" << endl;
-		cout << "nodeID: " << node.nodeID << endl;
-		cout << "keys.size(): " << node.keys.size() << endl;
+		//cout << "check node" << endl;
+		//cout << "nodeID: " << node.nodeID << endl;
+		//cout << "keys.size(): " << node.keys.size() << endl;
 		//cout << "nodeType: " << node.nodeType << endl;
 		//for(int i=0; i<node.keys.size(); i++){
 		//	cout << "node.key: " << *(int*) node.keys[i] << endl;
@@ -757,11 +761,11 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 			parentID = newNode.nodeID;
 
 			// debug info
-			cout << "check split" << endl;
-			cout << "oldNodeID: " << node.nodeID << endl;
-			cout << "newNodeID: " << newNode.nodeID << endl;
-			cout << "oldNode first key: " << *(int*)node.keys[0] << " last key: " << *(int*)node.keys[node.keys.size()-1] << endl;
-			cout << "newNode first key: " << *(int*)newNode.keys[0] << " last key: " << *(int*)newNode.keys[newNode.keys.size()-1] << endl;
+			//cout << "check split" << endl;
+			//cout << "oldNodeID: " << node.nodeID << endl;
+			//cout << "newNodeID: " << newNode.nodeID << endl;
+			//cout << "oldNode first key: " << *(float*)node.keys[0] << " last key: " << *(float*)node.keys[node.keys.size()-1] << endl;
+			//cout << "newNode first key: " << *(float*)newNode.keys[0] << " last key: " << *(float*)newNode.keys[newNode.keys.size()-1] << endl;
 
 			// get copyUpKey
 			switch(newNode.attrType){
@@ -780,7 +784,7 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 					break;
 				}
 			}
-			cout << "copyUpKey: " << *((int*)copyUpKey) << endl;
+			cout << "copyUpKey: " << *((float*)copyUpKey) << endl;
 
 			// if node is rootNode, then we need to create new root
 			if(node.nodeID == rootID){
