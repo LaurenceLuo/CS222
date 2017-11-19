@@ -301,10 +301,10 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 
 RC IX_ScanIterator::close()
 {
-    if((char*)_lowKey)
-        free((char*)_lowKey);
-    if((char*)_highKey)
-        free((char*)_highKey);
+    //if(_lowKey)
+        //delete (char*)_lowKey;
+    //if(_highKey)
+        //delete (char*)_highKey;
     return 0;
 }
 
