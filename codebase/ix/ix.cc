@@ -267,8 +267,6 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
     else if(_currNodeID==-1){
         if(_lowKey!=NULL){
             _currNodeID=_btree.findEntryPID(_ixfileHandle,_lowKey);
-            cout << "_currNodeID: " << _currNodeID << endl;
-            _currNodeID = 4;
             _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
             _currIndex=_currNode.getKeyIndex(_lowKey);
         }
@@ -527,7 +525,7 @@ int BtreeNode::getKeyIndex(const void *key){
 int BtreeNode::getChildIndex(const void *key, int keyIndex){
 	if(keyIndex == keys.size())
 		return keyIndex;
-	if(compareKey(key, keys[keyIndex], attrType) == 0)
+	if(compareKey(key, keys[keyIndex], attrType) <= 0)
 		return keyIndex+1;
 	else
 		return keyIndex;
