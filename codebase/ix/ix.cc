@@ -272,6 +272,8 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
             _currNodeID=_btree.findEntryPID(_ixfileHandle,_lowKey);
             _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
             _currIndex=_currNode.getKeyIndex(_lowKey);
+            if(!_lowKeyInclusive&&BtreeNode::compareKey(_currNode.keys[_currIndex],_lowKey,_btree.attrType)==0)
+                    _currIndex++;
         }
         else{
             _currNodeID=_btree.firstLeafID;
@@ -282,14 +284,26 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
     else{
         _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
     }
-    cout<<"_currNode.keys[_currIndex]: "<<*(float*)_currNode.keys[_currIndex]<<" _highKey: "<<*(float*)_highKey<<endl;
-    //cout<<" compareKey: "<<BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)<<endl;
-    if(_highKey!=NULL&&BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0){
-        return IX_EOF;
+    
+    //cout<<"_currNodeID: "<<_currNodeID<<" _currIndex: "<<_currIndex<<"_currNode.keys[_currIndex]: "<<*(float*)_currNode.keys[_currIndex]<<" _highKey: "<<*(float*)_highKey<<" compareKey: "<<BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)<<endl;
+    
+    if(_highKey!=NULL&&BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>=0){
+        if(!_highKeyInclusive||(BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0))
+            return IX_EOF;
     }
     //DeleteMark not considered yet.
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID
-    
+    switch(_btree.attrType){
+        case TypeInt:
+            memcpy(key,_currNode.keys[_currIndex],sizeof(int));
+            break;
+        case TypeReal:
+            memcpy(key,_currNode.keys[_currIndex],sizeof(float));
+            break;
+        case TypeVarChar://Not Implemented yet
+            break;
+    }
+    //cout<<"keys.size(): "<<_currNode.keys.size()<<endl;
     if(_currIndex<_currNode.buckets.size()-1){
         _currIndex++;
     }
@@ -346,6 +360,10 @@ BtreeNode::BtreeNode(){
 
 void BtreeNode::getData(void *data){
     //nodeID=0;
+    memset(nodePage, 0, PAGE_SIZE);
+    keys.clear();
+    childList.clear();
+    
 	memcpy(nodePage,(char*)data,PAGE_SIZE);
 
     memcpy(&nodeID, nodePage, sizeof(int));
@@ -882,7 +900,6 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
 		// remove last half keys in oldNode
 		oldNode.keys.erase(oldNode.keys.begin()+d, oldNode.keys.end());
 		oldNode.buckets.erase(oldNode.buckets.begin()+d, oldNode.buckets.end());
-
 		// update sibling
 		if(oldNode.rightSibling != 0){
 			BtreeNode originNextOldNode;
