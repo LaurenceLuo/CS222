@@ -57,7 +57,7 @@ class Btree{
 		int d;
 		int attrLen;
         int firstLeafID;
-        int lastLeafID;
+        //int lastLeafID;
 
 		RC createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType);
 		RC readNode(IXFileHandle &ixfileHandle, int nodeID, BtreeNode &node);

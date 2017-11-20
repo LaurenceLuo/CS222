@@ -391,14 +391,13 @@ void BtreeNode::getData(void *data){
         switch(attrType){
             case TypeVarChar:{
                 void *key;
-                int varCharLen;
+                int varCharLen=0;
                 memcpy(&varCharLen, nodePage + offset, sizeof(int));
                 key = malloc(varCharLen + sizeof(int));
-                memcpy(key, nodePage + offset, sizeof(int));
-                memcpy(key, nodePage + offset+sizeof(int), varCharLen);
+                memset(key, 0, varCharLen+sizeof(int));
+                memcpy(key, nodePage + offset, sizeof(int)+varCharLen);
                 offset += (varCharLen + sizeof(int));
                 keys.push_back(key);
-                //free(key);
                 break;
             }
             case TypeInt:{
@@ -407,7 +406,6 @@ void BtreeNode::getData(void *data){
                 memcpy(key, nodePage + offset, sizeof(int));
                 offset += sizeof(int);
                 keys.push_back(key);
-                //free(key);
                 break;
             }
             case TypeReal:{
@@ -416,7 +414,6 @@ void BtreeNode::getData(void *data){
                 memcpy(key, nodePage + offset, sizeof(float));
                 offset += sizeof(float);
                 keys.push_back(key);
-                //free(key);
                 break;
             }
         }
@@ -512,18 +509,20 @@ RC BtreeNode::compareKey(const void *key, const void *value, AttrType attrType){
 		case TypeVarChar: {
 			int keyLen, valueLen;
 			memcpy(&keyLen, (char*)key, sizeof(int));
-			char *keyStr = new char[keyLen];
-			memcpy(&keyStr, (char*)key+sizeof(int), keyLen);
+            void *keyStr = malloc(keyLen);
+            memset(keyStr, 0, keyLen);
+            memcpy(keyStr, (char*)key+sizeof(int), keyLen);
 
 			memcpy(&valueLen, (char*)value, sizeof(int));
-			char *valueStr = new char[valueLen];
-			memcpy(&valueStr, (char*)value+sizeof(int), valueLen);
+            void *valueStr = malloc(valueLen);
+            memset(valueStr, 0, valueLen);
+            memcpy(valueStr, (char*)value+sizeof(int), valueLen);
 
-			if(strcmp(keyStr, valueStr)==0) result=0;
-			else if(strcmp(keyStr, valueStr)>0) result=1;
+			if(keyLen == valueLen && strncmp((char*)keyStr, (char*)valueStr, keyLen)==0) result=0;
+			else if(strncmp((char*)keyStr, (char*)valueStr, keyLen)>0) result=1;
 			else result=-1;
-			delete[] keyStr;
-			delete[] valueStr;
+            free(keyStr);
+            free(valueStr);
 			break;
 		}
 	}
@@ -578,8 +577,8 @@ RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
 		case TypeReal:
 			offset = 11*sizeof(float) + 4*d * sizeof(float);
 			break;
-		// TODO
 		case TypeVarChar:
+            offset = 11*sizeof(int) + 2 * attrLen * d + 4*d * sizeof(int);
 			break;
 	}
 	memcpy(&bucketSize, nodePage+offset, sizeof(int));
@@ -606,8 +605,8 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 		case TypeReal:
 			offset = 11*sizeof(float) + 4*d * sizeof(int);
 			break;
-		// TODO
 		case TypeVarChar:
+            offset = 11*sizeof(int) + 2 * attrLen * d + 4*d * sizeof(int);
 			break;
 	}
 	int bucketSize = buckets.size();
@@ -640,7 +639,7 @@ Btree::Btree(){
 	rootID = 0;
 	d = 0;
     firstLeafID=1;
-    lastLeafID=1;
+    //lastLeafID=1;
 }
 
 RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType){
@@ -690,16 +689,17 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		switch(attribute.type){
 			case TypeInt:
 				// keys, childList, RIDs
-				d = (PAGE_SIZE / sizeof(int) - 11) / 8;
+				d = (PAGE_SIZE / sizeof(int) - 12) / 8;
 				break;
 			case TypeReal:
-				d = (PAGE_SIZE / sizeof(float) - 11) / 8;
+				d = (PAGE_SIZE / sizeof(float) - 12) / 8;
 				break;
-			// TODO
 			case TypeVarChar:
-				//d = (PAGE_SIZE - sizeof(int)*11) / (2*(3*sizeof(int)+attribute.length));
+				// 2*d*(int+length(keys) + int(childList) + int(pageNum) + int(slotNum)) = PAGE_SIZE - metadata
+				d = (PAGE_SIZE - 12 * sizeof(int)) / (2 * attribute.length + 8 * sizeof(int));
 				break;
 		}
+        cout << "d: " << d << endl;
 
 		BtreeNode root;
 		rc += createNode(ixfileHandle, root, Leaf);
@@ -712,7 +712,7 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 		int splitNodeID = -1;
 		bool split = false;
 		void *copyUpKey;
-
+        
 		switch(attrType){
 			case TypeInt:{
 				copyUpKey = malloc(sizeof(int));
@@ -724,6 +724,7 @@ RC Btree::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 			}
 			case TypeVarChar:{
 				copyUpKey = malloc(sizeof(int)+attrLen);
+                memset(copyUpKey, 0, sizeof(int)+attrLen);
 				break;
 			}
 		}
@@ -793,14 +794,26 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 					break;
 				}
 				case TypeVarChar: {
-					int varCharLen;
+					int varCharLen = 0;
 					memcpy(&varCharLen, (char*)newNode.keys[0], sizeof(int));
+                    copyUpKey = malloc(sizeof(int)+varCharLen);
+                    memset(copyUpKey, 0, sizeof(int)+varCharLen);
 					memcpy((char*)copyUpKey, (char*)newNode.keys[0], sizeof(int)+varCharLen);
+
+                    // debug info
+                    cout << "check leaf copyUpKey varchar " << endl;
+                    cout << "varCharLen: " << varCharLen << endl;
+                    void *charKey = malloc(varCharLen+1);
+                    memset(charKey, 0, varCharLen+1);
+                    memcpy((char*)charKey, (char*)copyUpKey+sizeof(int), varCharLen);
+                    cout << "charKey: " << (char*)charKey << endl;
+                    free(charKey);
+
 					break;
 				}
 			}
 
-			//cout << "copyUpKey: " << *((float*)copyUpKey) << endl;
+			//cout << "copyUpKey: " << *(char*)copyUpKey << endl;
 
 			// if node is rootNode, then we need to create new root
 			if(node.nodeID == rootID){
@@ -849,16 +862,6 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
                 rc += createNode(ixfileHandle, newNode, Index);
                 node.insertIndex(copyUpKey, splitNodeID);
                 rc += splitNode(ixfileHandle, node, newNode, copyUpKey);
-
-                /*
-                int index = node.getKeyIndex(key);
-                if(index < d){
-                    node.insertIndex(key, splitNodeID);
-                }
-                else{
-                    newNode.insertIndex(key, splitNodeID);
-                }
-                */
 
                 rc += writeNode(ixfileHandle, node);
                 rc += writeNode(ixfileHandle, newNode);
@@ -967,9 +970,23 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
                 break;
             }
             case TypeVarChar: {
-                int varCharLen;
-                memcpy(&varCharLen, &oldNode.keys[d], sizeof(int));
+                int varCharLen=0;
+                memcpy(&varCharLen, (char*)oldNode.keys[d], sizeof(int));
+                copyUpKey = malloc(sizeof(int)+varCharLen);
+                memset(copyUpKey, 0, sizeof(int)+varCharLen);
                 memcpy((char*)copyUpKey, (char*)oldNode.keys[d], sizeof(int)+varCharLen);
+
+                // debug info
+                
+                cout << "check split index node varchar" << endl;
+                cout << "varCharLen: " << varCharLen << endl;
+                void *charKey = malloc(varCharLen+1);
+                memset(charKey, 0, varCharLen+1);
+                memcpy((char*)charKey, (char*)copyUpKey+sizeof(int), varCharLen);
+                cout << "charKey: " << (char*)charKey << endl;
+                free(charKey);
+                
+
                 break;
             }
         }
@@ -995,22 +1012,30 @@ RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
     if(node.deleteMark==1)//node been deleted
         return -1;
 
-    if(nodeID==rootID&&node.keys.size()==0)//empty tree
-        return -1;
-
     int index=node.getKeyIndex(key);
-    if(node.compareKey(node.keys[index],key,node.attrType)!=0)
+    // check index 
+    if(index == node.keys.size() || node.compareKey(key, node.keys[index], attrType)){
         return -1;
+    }
 
     //lazy delete
-    node.keys.erase(node.keys.begin()+index);
-    node.buckets.erase(node.buckets.begin()+index);
-
-    /*if(node.deleteMark==1){
-		return -1;
+    for(int i=0; i<node.buckets[index].size(); i++){
+        if(node.buckets[index][i].pageNum == rid.pageNum && node.buckets[index][i].slotNum == rid.slotNum){
+            node.buckets[index].erase(node.buckets[index].begin()+i);
+        }
     }
-	else
-        node.deleteMark=1;*/
+
+    if(node.buckets[index].size() == 0){
+        node.keys.erase(node.keys.begin()+index);
+        node.buckets.erase(node.buckets.begin()+index);
+    }
+    //node.buckets.erase(node.buckets[index].begin());
+
+    // node is deleted
+    if(node.keys.size() == 0){
+        node.deleteMark = 1;
+    }
+
 	rc += writeNode(ixfileHandle, node);
 	return rc;
 }
