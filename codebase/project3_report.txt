@@ -2,15 +2,15 @@
 Team number (e.g., 01) : 
 #1 Student ID : 
 #1 Student Name : 
-#2 Student ID : 
-#2 Student Name : 
+#2 Student ID : 48964286
+#2 Student Name : Tzu-Chi Lin
 OS (bit) :
 gcc version :
 
 
 2. Meta-data page in an index file
 - Show your meta-data page of an index design if you have any. 
-
+We store rootID, attrType(TypeInt, TypeReal, TypeVarChar), d(order), attrLen, firstLeafID(for scan) in meta-data page. These meta-data is all for B-tree.
 
 3. Index Entry Format
 - Show your index entry design (structure). 
@@ -18,12 +18,26 @@ gcc version :
 
 4. Page Format
 - Show your internal-page (non-leaf node) design.
+------------  
+|meta-data |  Meta-data: nodeID, nodeType(Leaf, Index), attrType, attrLen,
+|----------|             deleteMark, d
+|childList |
+|----------|
+|   keys   |
+|----------|
 
 - Show your leaf-page (leaf node) design.
-
+------------
+|meta-data |  Meta-data: nodeID, nodeType(Leaf, Index), attrType, attrLen,
+|----------|             deleteMark, d, rightSibling, leftSibling
+|   keys   |
+|----------|
+|   RIDs   |
+|----------|
 
 5. Implementation Detail
 - Have you added your own source file (.cc or .h)?
+No, but we add two classes: Btree, BtreeNode
 
 - Have you implemented non-lazy deletion? Choose Yes or No: 
 
