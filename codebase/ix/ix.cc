@@ -250,21 +250,6 @@ RC IX_ScanIterator::initialization(IXFileHandle &ixfileHandle, const Attribute &
 
 RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 {
-    int smallerThanLK=1;//=1 means key>lowKey
-    int largerThanHK=-1;//=-1 means key<highKey
-    /*if(_lowKey!=NULL){
-        smallerThanLK=BtreeNode::compareKey(key,_lowKey,_btree.attrType);
-        if(smallerThanLK<0||(smallerThanLK==0&&!_lowKeyInclusive))
-            return IX_EOF;
-    }*/
-    /*if(_highKey!=NULL){
-        largerThanHK=BtreeNode::compareKey(key,_highKey,_btree.attrType);
-        if(largerThanHK>0||(largerThanHK==0&&!_highKeyInclusive)){
-            cout<<"here??? largerThanHK"<<largerThanHK<<endl;
-            cout<<"key: "<<*(float*)key<<" highKey: "<<*(float*)_highKey<<endl;
-            return IX_EOF;
-        }
-    }*/
     if(_currNodeID==0)
         return IX_EOF;
     else if(_currNodeID==-1){
@@ -274,24 +259,32 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
             _currIndex=_currNode.getKeyIndex(_lowKey);
             if(!_lowKeyInclusive&&BtreeNode::compareKey(_currNode.keys[_currIndex],_lowKey,_btree.attrType)==0)
                     _currIndex++;
+            _temp=_currIndex;
+            _lastIndex=_currNode.keys.size();
         }
         else{
             _currNodeID=_btree.firstLeafID;
             _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
             _currIndex=0;
+            _temp=_currIndex;
+            _lastIndex=_currNode.keys.size();
         }
     }
     else{
         _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
     }
+    if(_currNodeID==_btree.rootID&&_currNode.keys.size()==0)//empty tree
+        return IX_EOF;
     
+    _currIndex=_temp-(_lastIndex-_currNode.keys.size());
+    //cout<<"_currNode.buckets.size(): "<<_currNode.buckets.size()<<" _currIndex: "<<_currIndex<<" "<<" lastIndex: "<<_lastIndex<<endl;
     //cout<<"_currNodeID: "<<_currNodeID<<" _currIndex: "<<_currIndex<<"_currNode.keys[_currIndex]: "<<*(float*)_currNode.keys[_currIndex]<<" _highKey: "<<*(float*)_highKey<<" compareKey: "<<BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)<<endl;
     
     if(_highKey!=NULL&&BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>=0){
         if(!_highKeyInclusive||(BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0))
             return IX_EOF;
     }
-    //DeleteMark not considered yet.
+    
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID
     switch(_btree.attrType){
         case TypeInt:
@@ -303,12 +296,12 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         case TypeVarChar://Not Implemented yet
             break;
     }
-    //cout<<"keys.size(): "<<_currNode.keys.size()<<endl;
-    if(_currIndex<_currNode.buckets.size()-1){
-        _currIndex++;
+    if(_currIndex<_currNode.keys.size()-1){
+        _temp++;
     }
     else {
         _currIndex=0;
+        _temp=_currIndex;
         _currNodeID=_currNode.rightSibling;
     }
 
@@ -802,7 +795,7 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 					break;
 				}
 			}
-			cout << "copyUpKey: " << *((float*)copyUpKey) << endl;
+			//cout << "copyUpKey: " << *((float*)copyUpKey) << endl;
 
 			// if node is rootNode, then we need to create new root
 			if(node.nodeID == rootID){
@@ -935,16 +928,33 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
 	RC rc=0;
-	if(rootID==0)
+    if(rootID==0){
 		return -1;
+    }
 	int nodeID = findEntryPID(ixfileHandle, key);
+   //if(nodeID==rootID)
+
 	BtreeNode node;
 	rc += readNode(ixfileHandle, nodeID, node);
+    if(node.deleteMark==1)//node been deleted
+        return -1;
+    
+    if(nodeID==rootID&&node.keys.size()==0)//empty tree
+        return -1;
+    
+    int index=node.getKeyIndex(key);
+    if(node.compareKey(node.keys[index],key,node.attrType)!=0)
+        return -1;
+    
     //lazy delete
-	if(node.deleteMark==1)
+    node.keys.erase(node.keys.begin()+index);
+    node.buckets.erase(node.buckets.begin()+index);
+    
+    /*if(node.deleteMark==1){
 		return -1;
+    }
 	else
-        node.deleteMark=1;
+        node.deleteMark=1;*/
 	rc += writeNode(ixfileHandle, node);
 	return rc;
 }

@@ -178,6 +178,8 @@ class IX_ScanIterator {
 		BtreeNode _currNode;
 		int _currNodeID;
 		int _currIndex;
+        int _lastIndex;
+        int _temp;
 
 };
 
