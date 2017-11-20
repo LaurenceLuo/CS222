@@ -72,7 +72,7 @@ class Btree{
 
 	private:
 		RC recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID &rid, int nodeID, int &splitNodeID, void *copyUpKey, bool &split);
-		RC splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &newNode, const void *copyUpKey);
+		RC splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &newNode, void *copyUpKey);
 		int recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID);
 };
 
