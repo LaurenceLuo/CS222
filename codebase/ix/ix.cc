@@ -272,6 +272,8 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
     }
     else{
         _btree.readNode(_ixfileHandle,_currNodeID,_currNode);
+        if(_temp==0)
+            _lastIndex=_currNode.keys.size();
     }
     if(_currNodeID==_btree.rootID&&_currNode.keys.size()==0)//empty tree
         return IX_EOF;
