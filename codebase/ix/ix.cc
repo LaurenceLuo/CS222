@@ -299,7 +299,10 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         case TypeReal:
             memcpy(key,_currNode.keys[_currIndex],sizeof(float));
             break;
-        case TypeVarChar://Not Implemented yet
+        case TypeVarChar:
+            int length;
+            memcpy(&length,_currNode.keys[_currIndex],sizeof(int));
+            memcpy(key,_currNode.keys[_currIndex],length+sizeof(int));
             break;
     }
     if(_currIndex<_currNode.keys.size()-1){
