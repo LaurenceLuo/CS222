@@ -132,6 +132,7 @@ void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attri
     readBtree(ixfileHandle, &btree);
     //btree.readNode(ixfileHandle,0,&node);
     recursivePrint(ixfileHandle,attribute,&btree, 0,btree.rootID);
+    cout<<endl;
 }
 
 void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID) const{
@@ -150,7 +151,7 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
     if(node.nodeType==Index){
         vector<int> links;
         int count=0;
-        printf("{\"keys\":[");
+        printf("\"keys\":[");
         while(count<keySize){
             if( count > 0 ) printf(",");
             printf("\"");
@@ -181,7 +182,7 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             links.push_back(node.childList[count]);
             count++;
         }
-        printf("],\n");
+        cout<<"],"<<endl;
         links.push_back(node.childList[count]);// add the last link to vectory
         //cout<<"links.size(): "<<links.size()<<endl;
         for(int i=0;i<depth;i++)
@@ -189,13 +190,13 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
         printf("\"children\":[");
         for( int i=0; i<links.size(); i++){
             recursivePrint(ixfileHandle,attribute,btree,depth+1,links[i]);
-            if( i < links.size() - 1 ) printf(",\n");
+            if( i < links.size() - 1 ) cout<<",";
         }
-        printf("]}\n");
+        cout<<"]}"<<endl;
     }
     else if(node.nodeType==Leaf){
         int count=0;
-        printf("{\"keys\":[");
+        printf("\t{\"keys\":[");
         while(count<keySize){
             if( count > 0 ) printf(",");
             printf("\"");
@@ -211,27 +212,33 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
                     break;
                 case TypeVarChar:
                     int varCharLen;
-                    memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
+                    memcpy(&varCharLen,(char*)node.keys[count],sizeof(int));
+                    //cout<<"varCharLen: "<<varCharLen<<endl;
                     //assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    string sa( (char*)node.keys[count] , varCharLen);
-                    printf("%s",sa.c_str());
+                    void* key=malloc(varCharLen);
+                    memset(key,0,varCharLen);
+                    memcpy(key,(char*)node.keys[count]+sizeof(int),varCharLen);
+                    //string sa( (char*)node.keys[count] , varCharLen);
+                    cout<<(char*)key;
                     offset+=sizeof(int)+varCharLen;
+                    free(key);
                     break;
             }
             printf(":[");
             //print RIDs
             //for(int i=0; i<node.buckets.size();i++){
-                /*for(int j=0; j<node.buckets[i].size();j++){
-                    cout<<"("<<node.buckets[i][j].pageNum<<","<<node.buckets[i][j].slotNum<<")";
-                    if(i < node.buckets.size()-1&&j<node.buckets[i].size()-1) printf(",");
-                }*/
+                for(int i=0; i<node.buckets[count].size();i++){
+                    cout<<"("<<node.buckets[count][i].pageNum<<","<<node.buckets[count][i].slotNum<<")";
+                    if(i < node.buckets[count].size()-1&&count<node.buckets.size()-1)
+                        printf(",");
+                }
             //cout<<"keySize: "<<keySize<<endl;
-            cout<<"("<<node.buckets[count][0].pageNum<<","<<node.buckets[count][0].slotNum<<")";
+            //cout<<"("<<node.buckets[count][0].pageNum<<","<<node.buckets[count][0].slotNum<<")";
             //}
             printf("]\"");
             count++;
         }
-        printf("]}\n");
+        printf("]}");
 
     }
 
