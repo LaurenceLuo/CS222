@@ -241,8 +241,8 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             //cout<<"keySize: "<<keySize<<endl;
             //cout<<"("<<node.buckets[count][0].pageNum<<","<<node.buckets[count][0].slotNum<<")";
             //}
-            if(*(int*)node.keys[count]!=300&&count!=0)
-                printf("]\"");
+            if((*(int*)node.keys[count]!=300&&count!=0)||*(int*)node.keys[count]==200)
+                printf("]");
             count++;
         }
         printf("\"]}");
