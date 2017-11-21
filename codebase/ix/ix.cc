@@ -192,11 +192,11 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             recursivePrint(ixfileHandle,attribute,btree,depth+1,links[i]);
             if( i < links.size() - 1 ) cout<<",";
         }
-        cout<<"]}"<<endl;
+        cout<<endl<<"]}"<<endl;
     }
     else if(node.nodeType==Leaf){
         int count=0;
-        printf("\t{\"keys\":[");
+        printf("\n\t{\"keys\":[");
         while(count<keySize){
             if( count > 0 ) printf(",");
             printf("\"");
