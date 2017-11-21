@@ -50,12 +50,12 @@ RC PagedFileManager::createFile(const string &fileName)
 RC PagedFileManager::destroyFile(const string &fileName)
 {
     if(!FileExists(fileName)){
-        cout<<"File " << fileName << " not exists. Destroy fail!" << endl << endl;
+        //cout<<"File " << fileName << " not exists. Destroy fail!" << endl << endl;
         return -1;
     }
     else{
         if(remove(fileName.c_str())!=0){
-            perror("Error deleting file");
+            //perror("Error deleting file");
             return -1;
         }
     }
@@ -106,7 +106,7 @@ RC FileHandle::_openFile(fstream* file)
 RC FileHandle::_closeFile()
 {
     if(!myFile->is_open()){
-        cout<<"File not open. Close fail!" << endl << endl;
+        //cout<<"File not open. Close fail!" << endl << endl;
         return -1;
     }
     myFile->close();
@@ -121,7 +121,7 @@ RC FileHandle::readPage(PageNum pageNum, void *data)
     if(myFile->is_open()){
         unsigned pages=getNumberOfPages();
         if(pageNum>pages){
-            cout<<"Invalid input pageNum for read!" << endl << endl;
+            //cout<<"Invalid input pageNum for read!" << endl << endl;
             return -1;
         }
         else{
@@ -129,14 +129,14 @@ RC FileHandle::readPage(PageNum pageNum, void *data)
             long pos=pageNum*PAGE_SIZE;
             myFile->seekg(pos);
             if(!myFile->read (temp,PAGE_SIZE)){
-                cout<<"Read fail!" << endl << endl;
+                //cout<<"Read fail!" << endl << endl;
                 return -1;
             }
             readPageCounter++;
         }
     }
     else{
-        cout<<"File not open! Read fail!" << endl << endl;
+        //cout<<"File not open! Read fail!" << endl << endl;
         return -1;
     }
     return 0;
@@ -148,7 +148,7 @@ RC FileHandle::writePage(PageNum pageNum, const void *data)
     if(myFile->is_open()){
         unsigned pages=getNumberOfPages();
         if(pageNum>pages-1){
-            cout<<"Invalid input pageNum for write!" << endl << endl;
+            //cout<<"Invalid input pageNum for write!" << endl << endl;
             return -1;
         }
         else{
@@ -156,14 +156,14 @@ RC FileHandle::writePage(PageNum pageNum, const void *data)
             long pos=pageNum*PAGE_SIZE;
             myFile->seekp(pos);
             if(!myFile->write (temp,PAGE_SIZE)){
-                cout<<"Write fail!" << endl << endl;
+                //cout<<"Write fail!" << endl << endl;
                 return -1;
             }
             writePageCounter++;
         }
     }
     else{
-        cout<<"File not open! Write fail!" << endl << endl;
+        //cout<<"File not open! Write fail!" << endl << endl;
         return -1;
     }
     return 0;
@@ -178,14 +178,14 @@ RC FileHandle::appendPage(const void *data)
         myFile->seekp(pos);
         
         if(!myFile->write (temp,PAGE_SIZE)){
-            cout<<"Append fail!" << endl << endl;
+            //cout<<"Append fail!" << endl << endl;
             return -1;
         }
         appendPageCounter++;
         temp=NULL;
     }
     else{
-        cout<<"File not open! Append fail!" << endl << endl;
+        //cout<<"File not open! Append fail!" << endl << endl;
         return -1;
     }
     return 0;
