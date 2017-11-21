@@ -45,7 +45,9 @@ No, but we add two classes: Btree, BtreeNode
   If yes, please explain briefly how you have implemented this feature.
 
 - Other implementation details:
+We implement two classes, Btree and BtreeNode, to construct the structure of index file. Class Btree controls the method of all tree, such as createNode, insertEntry(by recursive) and class BtreeNode controls the method of each node, such as insertIndex (to each node). In each BtreeNode, it has nodePage[PAGE_SIZE] that can flush data to disk. After we insert/delete entry to the node, we write the data to this nodePage and then write it to disk. We can see this as an abstract layer to help us implement Btree easier.
 
+We use d to control the size of data to ensure it will be always less than PAGE_SIZE if there is no duplicate key. We separate the page into three parts as in the page format plot above. Though it is easier to implement, the drawback is that it may waste space if the data is TypeVarChar and the size of data less than attribute.length, since we assume all the data will be its maximun length and calculate d as this condition.
 
 6. Other (optional)
 - Freely use this section to tell us about things that are related to the project 3, but not related to the other sections (optional)
