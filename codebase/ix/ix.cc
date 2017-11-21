@@ -237,8 +237,8 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             //cout<<"keySize: "<<keySize<<endl;
             //cout<<"("<<node.buckets[count][0].pageNum<<","<<node.buckets[count][0].slotNum<<")";
             //}
-            if((*(int*)node.keys[count]!=300&&count!=0)||*(int*)node.keys[count]==200)
-                printf("]");
+            if(*(int*)node.keys[count]!=300&&count!=0)
+                printf("]\"");
             count++;
         }
         printf("\"]}");
@@ -315,7 +315,10 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         case TypeReal:
             memcpy(key,_currNode.keys[_currIndex],sizeof(float));
             break;
-        case TypeVarChar://Not Implemented yet
+        case TypeVarChar:
+        		int length;
+        		memcpy(&length,_currNode.keys[_currIndex],sizeof(int));
+        		memcpy(key,_currNode.keys[_currIndex],length+sizeof(int));
             break;
     }
     if(_currIndex<_currNode.keys.size()-1){
@@ -334,10 +337,6 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 
 RC IX_ScanIterator::close()
 {
-    //if(_lowKey)
-        //delete (char*)_lowKey;
-    //if(_highKey)
-        //delete (char*)_highKey;
     return 0;
 }
 
@@ -497,7 +496,7 @@ void BtreeNode::setData(BtreeNode *node){
         switch(node->attrType){
             case TypeVarChar:{
                 int varCharLen = 0;
-                memcpy(&varCharLen, (char *)node->keys[i], sizeof(int));
+                memcpy(&varCharLen, (int *)node->keys[i], sizeof(int));
                 memcpy(buffer+offset, (char *)node->keys[i], sizeof(int)+varCharLen);
                 offset += (varCharLen + sizeof(int));
                 break;
