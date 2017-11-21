@@ -136,13 +136,15 @@ void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attri
 
 void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID) const{
     BtreeNode node;
+    cout<<"NodeID: "<<nodeID<<endl;
     btree->readNode(ixfileHandle,nodeID,node);
     for(int i=0; i<depth; i++) printf("\t");
 
-    int keySize;
+    int keySize=node.keys.size();
+    cout<<"keysize: "<<keySize<<endl;
     int maxKeyNum=2*node.d;
     int offset = (9 + maxKeyNum + 1) * sizeof(int);
-    memcpy(&keySize, node.nodePage+ offset,sizeof(int));
+    //memcpy(&keySize, node.nodePage+ offset,sizeof(int));
     offset+=sizeof(int);
     if(node.nodeType==Index){
         vector<int> links;
@@ -174,8 +176,8 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             count++;
         }
         printf("],\n");
-        links.push_back(node.childList[count+1]);// add the last link to vectory
-
+        links.push_back(node.childList[count]);// add the last link to vectory
+        cout<<"links.size(): "<<links.size()<<endl;
         for(int i=0;i<depth;i++)
             printf("\t");
         printf("\"children\":[");
@@ -212,12 +214,14 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
             }
             printf(":[");
             //print RIDs
-            for(int i=0; i<node.buckets.size();i++){
-                for(int j=0; j<node.buckets[i].size();j++){
+            //for(int i=0; i<node.buckets.size();i++){
+                /*for(int j=0; j<node.buckets[i].size();j++){
                     cout<<"("<<node.buckets[i][j].pageNum<<","<<node.buckets[i][j].slotNum<<")";
                     if(i < node.buckets.size()-1&&j<node.buckets[i].size()-1) printf(",");
-                }
-            }
+                }*/
+            //cout<<"keySize: "<<keySize<<endl;
+            cout<<"("<<node.buckets[count][0].pageNum<<","<<node.buckets[count][0].slotNum<<")";
+            //}
             printf("]\"");
             count++;
         }
@@ -568,6 +572,9 @@ RC BtreeNode::insertLeaf(const void *key, const RID &rid){
 
 RC BtreeNode::readEntry(IXFileHandle &ixfileHandle){
 	RC rc = 0;
+    for(int i=0;i<buckets.size();i++){
+        buckets[i].clear();
+    }
 	buckets.clear();
 	int offset, bucketSize;
 	RID rid;
@@ -610,6 +617,7 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 		case TypeVarChar:
 			break;
 	}
+    memset(nodePage+offset,0,PAGE_SIZE-offset);
 	int bucketSize = buckets.size();
 	memcpy(nodePage+offset, &bucketSize, sizeof(int));
 	offset += sizeof(int);
@@ -999,8 +1007,10 @@ RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
         return -1;
 
     int index=node.getKeyIndex(key);
-    if(node.compareKey(node.keys[index],key,node.attrType)!=0)
+    if(node.compareKey(node.keys[index],key,node.attrType)!=0){
+        cout<<"nodeID: "<<nodeID<<" index: "<<index<<" Stored key: "<<*(int*)node.keys[index]<<" key: "<<*(int*)key<<endl;
         return -1;
+    }
 
     //lazy delete
     node.keys.erase(node.keys.begin()+index);
