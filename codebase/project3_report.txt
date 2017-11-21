@@ -14,7 +14,7 @@ We store rootID, attrType(TypeInt, TypeReal, TypeVarChar), d(order), attrLen, fi
 
 3. Index Entry Format
 - Show your index entry design (structure). 
-In the index file, the rootID is stored at page 0, which is meta-data page. Each index node(page) and leaf page are stored by pre-order of the B-tree in the file. For example, 1st leaf->2nd leaf->…->nth leaf->parent of these n leaves->…->last leaf. From the B-tree point of view, the file is connected and accessed starting from the root node, and then its children, which are index nodes, and at last all the leaf nodes (if depth>=3). And leaf nodes with the same parent are implemented as a doubly linked list, which can be easily accessed by the leftSibling ID and rightSibling ID.
+In the index file, the rootID is stored at page 0, which is meta-data page.  From the B-tree point of view, the file is connected and accessed starting from the root node, and then its children, which are index nodes, and at last all the leaf nodes (if depth>=3). And leaf nodes with the same parent are implemented as a doubly linked list, which can be easily accessed by the leftSibling ID and rightSibling ID.
 
 
 4. Page Format
