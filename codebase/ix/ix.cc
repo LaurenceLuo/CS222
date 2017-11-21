@@ -130,9 +130,7 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
     Btree btree;
     readBtree(ixfileHandle, &btree);
-    //btree.readNode(ixfileHandle,0,&node);
     recursivePrint(ixfileHandle,attribute,&btree, 0,btree.rootID);
-    cout<<endl;
 }
 
 void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID) const{
@@ -142,12 +140,10 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
     for(int i=0; i<depth; i++) printf("\t");
 
     int keySize=node.keys.size();
-    //int _currKey=node.keys;
     //cout<<"keysize: "<<keySize<<endl;
     int maxKeyNum=2*node.d;
     int offset = (9 + maxKeyNum + 1) * sizeof(int);
-    //memcpy(&keySize, node.nodePage+ offset,sizeof(int));
-    
+
     offset+=sizeof(int);
     if(node.nodeType==Index){
         vector<int> links;
@@ -170,8 +166,8 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
                     memcpy(&varCharLen,(char*)node.keys[count],sizeof(int));
                     //cout<<"varCharLen: "<<varCharLen<<endl;
                     //assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    void* key=malloc(varCharLen);
-                    memset(key,0,varCharLen);
+                    void* key=malloc(varCharLen+1);
+                    memset(key,0,varCharLen+1);
                     memcpy(key,(char*)node.keys[count]+sizeof(int),varCharLen);
                     //string sa( (char*)node.keys[count] , varCharLen);
                     cout<<(char*)key;
@@ -251,7 +247,6 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
 
 }
 
-
 IX_ScanIterator::IX_ScanIterator()
 {
 }
@@ -320,10 +315,7 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
         case TypeReal:
             memcpy(key,_currNode.keys[_currIndex],sizeof(float));
             break;
-        case TypeVarChar:
-            int length;
-            memcpy(&length,_currNode.keys[_currIndex],sizeof(int));
-            memcpy(key,_currNode.keys[_currIndex],length+sizeof(int));
+        case TypeVarChar://Not Implemented yet
             break;
     }
     if(_currIndex<_currNode.keys.size()-1){
@@ -382,37 +374,47 @@ BtreeNode::BtreeNode(){
 }
 
 void BtreeNode::getData(void *data){
-    //nodeID=0;
     memset(nodePage, 0, PAGE_SIZE);
     keys.clear();
     childList.clear();
+    int offset = 0;
 
 	memcpy(nodePage,(char*)data,PAGE_SIZE);
-
+	// 0
     memcpy(&nodeID, nodePage, sizeof(int));
-
-    memcpy(&nodeType, nodePage + sizeof(int), sizeof(int));
-
-    memcpy(&attrType, nodePage + 2 * sizeof(int), sizeof(int));
-
-    memcpy(&attrLen, nodePage + 3 * sizeof(int), sizeof(int));
-
-    memcpy(&deleteMark, nodePage + 4 * sizeof(int), sizeof(int));
-
-    memcpy(&d, nodePage + 5 * sizeof(int), sizeof(int));
-
-    memcpy(&leftSibling, nodePage + 6 * sizeof(int), sizeof(int));
-
-    memcpy(&rightSibling, nodePage + 7 * sizeof(int), sizeof(int));
-
+    offset += sizeof(int);
+    // 1
+    memcpy(&nodeType, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 2
+    memcpy(&attrType, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 3
+    memcpy(&attrLen, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 4
+    memcpy(&deleteMark, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 5
+    memcpy(&d, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 6
+    memcpy(&leftSibling, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 7
+    memcpy(&rightSibling, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
+    // 8
     int size, child;
-    memcpy(&size, nodePage + 8 * sizeof(int), sizeof(int));
+    memcpy(&size, nodePage + offset, sizeof(int));
+    offset += sizeof(int);
     for (int i = 0; i < size; i++){
-        memcpy(&child, nodePage + (9 + i) * sizeof(int), sizeof(int));
+        memcpy(&child, nodePage + offset, sizeof(int));
+        offset += sizeof(int);
         childList.push_back(child);
     }
     int maxKeyNum=2*d;
-    int offset = (9 + maxKeyNum + 1) * sizeof(int);
+    offset = (9 + maxKeyNum + 1) * sizeof(int);
     memcpy(&size, nodePage+ offset,sizeof(int));
     offset+=sizeof(int);
     for(int i=0;i<size;i++){
@@ -421,7 +423,6 @@ void BtreeNode::getData(void *data){
                 void *key;
                 int varCharLen=0;
                 memcpy(&varCharLen, nodePage + offset, sizeof(int));
-                //cout<<"varCharLen: "<<varCharLen<<endl;
                 key = malloc(varCharLen + sizeof(int));
                 memset(key, 0, varCharLen+sizeof(int));
                 memcpy(key, nodePage + offset, sizeof(int)+varCharLen);
@@ -495,9 +496,8 @@ void BtreeNode::setData(BtreeNode *node){
     for(int i=0;i<size;i++){
         switch(node->attrType){
             case TypeVarChar:{
-                //int varCharLen = *(int *)node->keys[i];
-                int varCharLen;
-                memcpy(&varCharLen,(int*)node->keys[i],sizeof(int));
+                int varCharLen = 0;
+                memcpy(&varCharLen, (char *)node->keys[i], sizeof(int));
                 memcpy(buffer+offset, (char *)node->keys[i], sizeof(int)+varCharLen);
                 offset += (varCharLen + sizeof(int));
                 break;
@@ -586,13 +586,27 @@ RC BtreeNode::insertIndex(const void *key, const int &childNodeID){
 	return 0;
 }
 
+
 RC BtreeNode::insertLeaf(const void *key, const RID &rid){
 	int index = getKeyIndex(key);
-	keys.insert(keys.begin()+index, (char*)key);
-	RidList ridList;
-	ridList.push_back(rid);
-	buckets.insert(buckets.begin()+index, ridList);
-	//childList.insert(childList.begin()+index, 0);
+	// check duplicate key
+	/*
+	if(keys.size() > 0 && index < keys.size() && compareKey(key, keys[index], attrType)==0 ){
+		// debug info
+		cout << "check duplicate" << endl;
+		cout << "index: " << index << endl;
+		cout << "key: " << *(int*)key << endl;
+		cout << "keys[index]: " << *(int*)keys[index] << endl;
+
+		buckets[index].push_back(rid);
+		cout << "buckets[index] size: " << buckets[index].size() << endl;
+	}*/
+	//else{
+		keys.insert(keys.begin()+index, (char*)key);
+		RidList ridList;
+		ridList.push_back(rid);
+		buckets.insert(buckets.begin()+index, ridList);
+	//}
 	return 0;
 }
 
@@ -659,10 +673,12 @@ RC BtreeNode::writeEntry(IXFileHandle &ixfileHandle){
 			cout << "RID: pageNum: " << buckets[i][0].pageNum << " slotNum: " << buckets[i][0].slotNum << endl;
 		}
 		*/
-		memcpy(nodePage+offset, &buckets[i][0].pageNum, sizeof(unsigned));
-		offset += sizeof(unsigned);
-		memcpy(nodePage+offset, &buckets[i][0].slotNum, sizeof(unsigned));
-		offset += sizeof(unsigned);
+		for(int j=0; j<buckets[i].size(); j++){
+			memcpy(nodePage+offset, &buckets[i][j].pageNum, sizeof(unsigned));
+			offset += sizeof(unsigned);
+			memcpy(nodePage+offset, &buckets[i][j].slotNum, sizeof(unsigned));
+			offset += sizeof(unsigned);
+		}
 	}
 	//cout << "buckets offset: " << offset << endl;
 	return rc;
@@ -674,7 +690,6 @@ Btree::Btree(){
 	rootID = 0;
 	d = 0;
     firstLeafID=1;
-    //lastLeafID=1;
 }
 
 RC Btree::createNode(IXFileHandle &ixfileHandle, BtreeNode &node, NodeType nodeType){
@@ -835,8 +850,8 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
                     memset(copyUpKey, 0, sizeof(int)+varCharLen);
 					memcpy((char*)copyUpKey, (char*)newNode.keys[0], sizeof(int)+varCharLen);
 
-                    // debug info
 					/*
+                    // debug info
                     cout << "check leaf copyUpKey varchar " << endl;
                     cout << "varCharLen: " << varCharLen << endl;
                     void *charKey = malloc(varCharLen+1);
@@ -903,8 +918,9 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
                 rc += writeNode(ixfileHandle, node);
                 rc += writeNode(ixfileHandle, newNode);
 
+                split = true;
                 splitNodeID = newNode.nodeID;
-                //split = true;
+
                 // debug info
                 /*
                 cout << "check split" << endl;
@@ -924,7 +940,6 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
                     rootNode.childList.push_back(node.nodeID);
                     rootNode.childList.push_back(newNode.nodeID);
                     rc += writeNode(ixfileHandle, rootNode);
-                    splitNodeID = -1;
                     split = false;
                 }
 
@@ -1011,9 +1026,8 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
                 copyUpKey = malloc(sizeof(int)+varCharLen);
                 memset(copyUpKey, 0, sizeof(int)+varCharLen);
                 memcpy((char*)copyUpKey, (char*)oldNode.keys[d], sizeof(int)+varCharLen);
-
-                // debug info
                 /*
+                // debug info
                 cout << "check split index node varchar" << endl;
                 cout << "varCharLen: " << varCharLen << endl;
                 void *charKey = malloc(varCharLen+1);
@@ -1021,9 +1035,7 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
                 memcpy((char*)charKey, (char*)copyUpKey+sizeof(int), varCharLen);
                 cout << "charKey: " << (char*)charKey << endl;
                 free(charKey);
-                */
-                
-
+				*/
                 break;
             }
         }
@@ -1038,41 +1050,28 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
 	RC rc=0;
-    if(rootID==0){
+    if(rootID==0)
 		return -1;
-    }
+
 	int nodeID = findEntryPID(ixfileHandle, key);
-   //if(nodeID==rootID)
 
 	BtreeNode node;
 	rc += readNode(ixfileHandle, nodeID, node);
     if(node.deleteMark==1)//node been deleted
         return -1;
-    
+
     int index=node.getKeyIndex(key);
-    //cout<<"first stored key: "<<*(int*)node.keys[0]<<" Stored key: "<<*(int*)node.keys[index]<<" key: "<<*(int*)key<<endl;
     // check index 
-    if(index == node.keys.size() || node.compareKey(key, node.keys[index], attrType)!=0){
+    if(node.compareKey(key, node.keys[index], attrType))
         return -1;
-    }
 
     //lazy delete
-    for(int i=0; i<node.buckets[index].size(); i++){
-        if(node.buckets[index][i].pageNum == rid.pageNum && node.buckets[index][i].slotNum == rid.slotNum){
-            node.buckets[index].erase(node.buckets[index].begin()+i);
-        }
-    }
-
-    if(node.buckets[index].size() == 0){
-        node.keys.erase(node.keys.begin()+index);
-        node.buckets.erase(node.buckets.begin()+index);
-    }
-    //node.buckets.erase(node.buckets[index].begin());
+    node.keys.erase(node.keys.begin()+index);
+    node.buckets.erase(node.buckets.begin()+index);
 
     // node is deleted
-    if(node.keys.size() == 0){
+    if(node.keys.size() == 0)
         node.deleteMark = 1;
-    }
 
 	rc += writeNode(ixfileHandle, node);
 	return rc;
@@ -1095,12 +1094,13 @@ int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID
 		index = node.getKeyIndex(key);
 		childIndex = node.getChildIndex(key, index);
 		childID = node.childList[childIndex];
+		/*
 		// debug info
-
-		//cout << "check find" << endl;
-		//cout << "index: " << index << endl;
-		//cout << "childIndex: " << childIndex << endl;
-		//cout << "childID: " << childID << endl;
+		cout << "check find" << endl;
+		cout << "index: " << index << endl;
+		cout << "childIndex: " << childIndex << endl;
+		cout << "childID: " << childID << endl;
+		 */
 
 		return recursiveFind(ixfileHandle, key, childID);
 	}
