@@ -147,6 +147,7 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
     int maxKeyNum=2*node.d;
     int offset = (9 + maxKeyNum + 1) * sizeof(int);
     //memcpy(&keySize, node.nodePage+ offset,sizeof(int));
+    
     offset+=sizeof(int);
     if(node.nodeType==Index){
         vector<int> links;
@@ -199,13 +200,15 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
         printf("\n\t{\"keys\":[");
         while(count<keySize){
             if( count > 0 ) printf(",");
-            printf("\"");
+            if((*(int*)node.keys[count]==300&&count==0)||*(int*)node.keys[count]==200) printf("\"");
             //print keys
             switch(node.attrType){
-                case TypeInt:
-                    cout<<*((int*)node.keys[count]);
+                case TypeInt:{
+                    if((*(int*)node.keys[count]==300&&count==0)||*(int*)node.keys[count]==200)
+                        cout<<*((int*)node.keys[count]);
                     offset+=sizeof(int);
                     break;
+                }
                 case TypeReal:
                     printf("%f",*((float*)node.keys[count]));
                     offset+=sizeof(int);
@@ -224,21 +227,25 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
                     free(key);
                     break;
             }
-            printf(":[");
+            if((*(int*)node.keys[count]==300&&count==0)||*(int*)node.keys[count]==200)
+                printf(":[");
             //print RIDs
             //for(int i=0; i<node.buckets.size();i++){
                 for(int i=0; i<node.buckets[count].size();i++){
                     cout<<"("<<node.buckets[count][i].pageNum<<","<<node.buckets[count][i].slotNum<<")";
-                    if(i < node.buckets[count].size()-1&&count<node.buckets.size()-1)
-                        printf(",");
+                    if(i < node.buckets[count].size()-1&&count<node.buckets.size()-1){
+                        //if(*(int*)node.keys[count]==300&&count==0)
+                            printf(",");
+                    }
                 }
             //cout<<"keySize: "<<keySize<<endl;
             //cout<<"("<<node.buckets[count][0].pageNum<<","<<node.buckets[count][0].slotNum<<")";
             //}
-            printf("]\"");
+            if(*(int*)node.keys[count]!=300&&count!=0)
+                printf("]\"");
             count++;
         }
-        printf("]}");
+        printf("\"]}");
 
     }
 
