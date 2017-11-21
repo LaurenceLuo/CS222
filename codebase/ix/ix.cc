@@ -136,12 +136,13 @@ void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attri
 
 void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &attribute,Btree* btree, int depth, int nodeID) const{
     BtreeNode node;
-    cout<<"NodeID: "<<nodeID<<endl;
+    //cout<<"NodeID: "<<nodeID<<endl;
     btree->readNode(ixfileHandle,nodeID,node);
     for(int i=0; i<depth; i++) printf("\t");
 
     int keySize=node.keys.size();
-    cout<<"keysize: "<<keySize<<endl;
+    //int _currKey=node.keys;
+    //cout<<"keysize: "<<keySize<<endl;
     int maxKeyNum=2*node.d;
     int offset = (9 + maxKeyNum + 1) * sizeof(int);
     //memcpy(&keySize, node.nodePage+ offset,sizeof(int));
@@ -164,11 +165,16 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
                     break;
                 case TypeVarChar:
                     int varCharLen;
-                    memcpy(&varCharLen,node.nodePage+offset,sizeof(int));
+                    memcpy(&varCharLen,(char*)node.keys[count],sizeof(int));
+                    //cout<<"varCharLen: "<<varCharLen<<endl;
                     //assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    string sa( (char*)node.keys[count] , varCharLen);
-                    printf("%s",sa.c_str());
+                    void* key=malloc(varCharLen);
+                    memset(key,0,varCharLen);
+                    memcpy(key,(char*)node.keys[count]+sizeof(int),varCharLen);
+                    //string sa( (char*)node.keys[count] , varCharLen);
+                    cout<<(char*)key;
                     offset+=sizeof(int)+varCharLen;
+                    free(key);
                     break;
             }
             printf("\"");
@@ -177,7 +183,7 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
         }
         printf("],\n");
         links.push_back(node.childList[count]);// add the last link to vectory
-        cout<<"links.size(): "<<links.size()<<endl;
+        //cout<<"links.size(): "<<links.size()<<endl;
         for(int i=0;i<depth;i++)
             printf("\t");
         printf("\"children\":[");
@@ -401,6 +407,7 @@ void BtreeNode::getData(void *data){
                 void *key;
                 int varCharLen=0;
                 memcpy(&varCharLen, nodePage + offset, sizeof(int));
+                //cout<<"varCharLen: "<<varCharLen<<endl;
                 key = malloc(varCharLen + sizeof(int));
                 memset(key, 0, varCharLen+sizeof(int));
                 memcpy(key, nodePage + offset, sizeof(int)+varCharLen);
@@ -474,7 +481,9 @@ void BtreeNode::setData(BtreeNode *node){
     for(int i=0;i<size;i++){
         switch(node->attrType){
             case TypeVarChar:{
-                int varCharLen = *(int *)node->keys[i];
+                //int varCharLen = *(int *)node->keys[i];
+                int varCharLen;
+                memcpy(&varCharLen,(int*)node->keys[i],sizeof(int));
                 memcpy(buffer+offset, (char *)node->keys[i], sizeof(int)+varCharLen);
                 offset += (varCharLen + sizeof(int));
                 break;
@@ -1025,10 +1034,11 @@ RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, co
 	rc += readNode(ixfileHandle, nodeID, node);
     if(node.deleteMark==1)//node been deleted
         return -1;
-
+    
     int index=node.getKeyIndex(key);
+    //cout<<"first stored key: "<<*(int*)node.keys[0]<<" Stored key: "<<*(int*)node.keys[index]<<" key: "<<*(int*)key<<endl;
     // check index 
-    if(index == node.keys.size() || node.compareKey(key, node.keys[index], attrType)){
+    if(index == node.keys.size() || node.compareKey(key, node.keys[index], attrType)!=0){
         return -1;
     }
 
@@ -1064,7 +1074,7 @@ int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID
 	int index, childIndex, childID;
 
 	if(node.nodeType==Leaf){
-		cout << "check leafNode find: " << node.nodeID << endl;
+		//cout << "check leafNode find: " << node.nodeID << endl;
 		return node.nodeID;
 	}
 	else{
@@ -1073,10 +1083,10 @@ int Btree::recursiveFind(IXFileHandle &ixfileHandle, const void *key, int nodeID
 		childID = node.childList[childIndex];
 		// debug info
 
-		cout << "check find" << endl;
-		cout << "index: " << index << endl;
-		cout << "childIndex: " << childIndex << endl;
-		cout << "childID: " << childID << endl;
+		//cout << "check find" << endl;
+		//cout << "index: " << index << endl;
+		//cout << "childIndex: " << childIndex << endl;
+		//cout << "childID: " << childID << endl;
 
 		return recursiveFind(ixfileHandle, key, childID);
 	}

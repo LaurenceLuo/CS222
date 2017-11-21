@@ -36,7 +36,7 @@ PagedFileManager::~PagedFileManager()
 RC PagedFileManager::createFile(const string &fileName)
 {
     if(FileExists(fileName)){
-        cout << "File " << fileName << " already exists. Create fail!" << endl << endl;
+        //cout << "File " << fileName << " already exists. Create fail!" << endl << endl;
         return -1;
     }
     else{
@@ -68,7 +68,7 @@ RC PagedFileManager::openFile(const string &fileName, FileHandle &fileHandle)
     fstream *fs=new fstream();
     fs->open(fileName.c_str(),fstream::in | fstream::out);
     if(!(*fs)){
-        cout<<"File " << fileName << " not exists. Open fail!" << endl << endl;
+        //cout<<"File " << fileName << " not exists. Open fail!" << endl << endl;
         return -1;
     }
     fileHandle._openFile(fs);
