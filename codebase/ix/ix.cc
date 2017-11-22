@@ -214,8 +214,8 @@ void IndexManager::recursivePrint(IXFileHandle &ixfileHandle, const Attribute &a
                     memcpy(&varCharLen,(char*)node.keys[count],sizeof(int));
                     //cout<<"varCharLen: "<<varCharLen<<endl;
                     //assert( varCharLen >= 0 && "something wrong with getting varchar key size\n");
-                    void* key=malloc(varCharLen);
-                    memset(key,0,varCharLen);
+                    void* key=malloc(varCharLen+1);
+                    memset(key,0,varCharLen+1);
                     memcpy(key,(char*)node.keys[count]+sizeof(int),varCharLen);
                     //string sa( (char*)node.keys[count] , varCharLen);
                     cout<<(char*)key;
@@ -810,7 +810,6 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 			rc += createNode(ixfileHandle, newNode, Leaf);
 			rc += splitNode(ixfileHandle, node, newNode, copyUpKey);
 
-
 			int index = node.getKeyIndex(key);
 			if(index < d){
 				node.insertLeaf(key, rid);
@@ -833,9 +832,13 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 			cout << "newNode first key: " << *(int*)newNode.keys[0] << " last key: " << *(int*)newNode.keys[newNode.keys.size()-1] << endl;
 			*/
 			// get copyUpKey
+
 			switch(newNode.attrType){
 				case TypeInt: {
 					memcpy((char*)copyUpKey, (char*)newNode.keys[0], sizeof(int));
+                    // debug info
+                    //cout << "check leaf copyUpKey varchar " << endl;
+                    //cout << "key: " << *(int*)key << endl;
 					break;
 				}
 				case TypeReal: {
@@ -848,7 +851,6 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
                     copyUpKey = malloc(sizeof(int)+varCharLen);
                     memset(copyUpKey, 0, sizeof(int)+varCharLen);
 					memcpy((char*)copyUpKey, (char*)newNode.keys[0], sizeof(int)+varCharLen);
-
 					/*
                     // debug info
                     cout << "check leaf copyUpKey varchar " << endl;
@@ -858,11 +860,12 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
                     memcpy((char*)charKey, (char*)copyUpKey+sizeof(int), varCharLen);
                     cout << "charKey: " << (char*)charKey << endl;
                     free(charKey);
-                    */
+					*/
 
 					break;
 				}
 			}
+
 
 			//cout << "copyUpKey: " << *(char*)copyUpKey << endl;
 
@@ -874,10 +877,11 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 				// update rootID
 				rootID = rootNode.nodeID;
 				// update rootNode
-				//cout << "insert first root key: " << *(int*)copyUpKey << endl;
+				//cout << "insert root key: " << *(int*)copyUpKey << endl;
 				rootNode.keys.push_back(copyUpKey);
 				rootNode.childList.push_back(node.nodeID);
 				rootNode.childList.push_back(newNode.nodeID);
+
 				rc += writeNode(ixfileHandle, rootNode);
 				split = false;
 				//cout << "create new root node!" << endl;
@@ -930,6 +934,7 @@ RC Btree::recursiveInsert(IXFileHandle &ixfileHandle, const void *key, const RID
 				*/
 
                 if(node.nodeID == rootID){
+                		//cout << "special case for index" << endl;
                     BtreeNode rootNode;
                     rc += createNode(ixfileHandle, rootNode, Index);
                     // update rootID
@@ -1002,7 +1007,26 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
 		*/
         for(int i=0; i<d; i++){
             // move last half keys from oldNode to newNode
-            newNode.keys.push_back(oldNode.keys[d+i+1]);
+        		void *tmpKey;
+			switch(attrType){
+				case TypeInt:{
+					tmpKey = malloc(sizeof(int));
+					memcpy((char*)tmpKey, (char*)oldNode.keys[d+i+1], sizeof(int));
+					break;
+				}
+				case TypeReal:{
+					tmpKey = malloc(sizeof(float));
+					memcpy((char*)tmpKey, (char*)oldNode.keys[d+i+1], sizeof(float));
+					break;
+				}
+				case TypeVarChar:{
+					tmpKey = malloc(sizeof(int)+attrLen);
+					memset(tmpKey, 0, sizeof(int)+attrLen);
+					memcpy((char*)tmpKey, (char*)oldNode.keys[d+i+1], sizeof(int)+attrLen);
+					break;
+				}
+			}
+        		newNode.keys.push_back(tmpKey);
             newNode.childList.push_back(oldNode.childList[d+i+1]);
         }
         newNode.childList.push_back(oldNode.childList[2 * d + 1]);
@@ -1042,10 +1066,10 @@ RC Btree::splitNode(IXFileHandle &ixfileHandle, BtreeNode &oldNode, BtreeNode &n
         // remove last half keys in oldNode
         oldNode.keys.erase(oldNode.keys.begin()+d, oldNode.keys.end());
         oldNode.childList.erase(oldNode.childList.begin()+d+1, oldNode.childList.end());
-
 		return rc;
 	}
 }
+
 
 RC Btree::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid){
 	RC rc=0;
