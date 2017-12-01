@@ -816,11 +816,11 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
     RecordBasedFileManager *_rbfm=RecordBasedFileManager::instance();
     char *page=new char[PAGE_SIZE];
     if(_rid.pageNum>_fileHandle.getNumberOfPages()){
-        cout<<"Invalid pageNum: "<<_rid.pageNum<<" for getNextRecord!"<<endl;
+        //cout<<"Invalid pageNum: "<<_rid.pageNum<<" for getNextRecord!"<<endl;
         return -1;
     }
     if(_fileHandle.readPage(_rid.pageNum,page)!=0){
-        cout<<"readPage from getNextRecord fail!"<<" PageNum: "<<endl;
+        //cout<<"readPage from getNextRecord fail!"<<" PageNum: "<<endl;
         return -1;
     }
     //cout<<"IN_fileHandle.getNumberOfPages()!!!"<<_fileHandle.getNumberOfPages()<<endl;
@@ -835,7 +835,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
             if(_rid.pageNum%DIR_NUM==0)
                 _rid.pageNum++;
             if(_rid.pageNum>_fileHandle.getNumberOfPages()){
-                cout<<"Approach file end. "<<endl;
+                //cout<<"Approach file end. "<<endl;
                 return RBFM_EOF;
             }
             else
@@ -860,7 +860,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
         //cout<<"slot.length: "<<slot.length<<" fieldTotalSize: "<<fieldTotalSize<<endl;
         char *record=new char[dataSize+nullIndicatorSize];
         if(_rbfm->readRecord(_fileHandle, _recordDescriptor, _rid, record)!=0){
-            cout<<"ReadRecord from getNextRecord fail!"<<endl;
+            //cout<<"ReadRecord from getNextRecord fail!"<<endl;
             return -1;
         }
         

@@ -9,7 +9,7 @@ RelationManager* RelationManager::instance()
 
 RelationManager::RelationManager()
 {
-
+    ix_manager=IndexManager::instance();
 }
 
 RelationManager::~RelationManager()
@@ -771,6 +771,53 @@ RC RelationManager::dropAttribute(const string &tableName, const string &attribu
 RC RelationManager::addAttribute(const string &tableName, const Attribute &attr)
 {
     return -1;
+}
+
+RC RelationManager::createIndex(const string &tableName, const string &attributeName){
+    string ix_Name(tableName+"_"+attributeName+"_ix");
+    if(ix_manager->createFile(ix_Name)!=0){
+        cout<<"?????"<<endl;
+        return -1;
+    }
+    vector<Attribute> attrs;
+    Attribute attr;
+    if(getAttributes(tableName,attrs)!=0){
+        return -1;
+    }
+    for(int i=0;i<attrs.size();i++){
+        if(attrs[i].name.compare(attributeName)==0){
+            attr=attrs[i];
+            //cout<<"Found attr: "<<attr.name<<endl;
+        }
+    }
+    RM_ScanIterator rmsi;
+    vector<string> attributeNames;
+    attributeNames.push_back(attributeName);
+    if(scan(tableName,"", NO_OP, NULL, attributeNames, rmsi)!=0){
+        return -1;
+    }
+    
+    IXFileHandle ixfileHandle;
+    if(ix_manager->openFile(ix_Name,ixfileHandle)!=0){
+        return -1;
+    }
+    
+    RID rid;
+    void *returnedData;
+    if(attr.type==TypeVarChar)
+        returnedData=malloc(attr.length+sizeof(int));
+    else
+        returnedData=malloc(attr.length);
+    while(rmsi.getNextTuple(rid, returnedData) != RM_EOF)
+    {
+        ix_manager->insertEntry(ixfileHandle, attr, returnedData, rid);
+    }
+    
+    free(returnedData);
+    
+    //changeIndexedInCatalog?
+    return 0;
+    
 }
 
 

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../rbf/rbfm.h"
+#include "../ix/ix.h"
 
 using namespace std;
 
@@ -73,9 +74,9 @@ public:
       const vector<string> &attributeNames, // a list of projected attributes
       RM_ScanIterator &rm_ScanIterator);
     
-    RC createIndex(const string &tableName, const string &attributeName){};
+  RC createIndex(const string &tableName, const string &attributeName);
     
-    RC destroyIndex(const string &tableName, const string &attributeName){};
+  RC destroyIndex(const string &tableName, const string &attributeName){};
     
     // indexScan returns an iterator to allow the caller to go through qualified entries in index
   RC indexScan(const string &tableName,
@@ -94,6 +95,7 @@ public:
 
 private:
   short table_id;
+  IndexManager *ix_manager;
 
   bool tableExist(const string &tableName);
   RC insertTableTuple(FileHandle &fileHandle, const string &tableName, int pageNum);	// insert tuple to table "Tables"
