@@ -374,13 +374,67 @@ class Filter : public Iterator {
 class Project : public Iterator {
     // Projection operator
     public:
+		Iterator *input;
+		vector<string> attrNames;
+		vector<Attribute> allAttrs;
+		vector<Attribute> projectAttrs;
+		void *buffer;
         Project(Iterator *input,                    // Iterator of input R
               const vector<string> &attrNames){};   // vector containing attribute names
         ~Project(){};
 
-        RC getNextTuple(void *data) {return QE_EOF;};
+        RC getNextTuple(void *data) {
+        		while(input->getNextTuple(buffer)!=QE_EOF){
+        			// read all record into buffer, then copy the project attrs into data
+        			int allOffset = 0;
+        			int projectOffset = 0;
+        			for(int i=0; i<allAttrs.size(); i++){
+        				bool notFound = true;
+        				for(int j=0; j<projectAttrs.size(); j++){
+        					if(allAttrs[i].name.compare(projectAttrs[j].name)==0){
+        						if(projectAttrs[j].type != TypeVarChar){
+        							memcpy(data+projectOffset, (char*)buffer+allOffset, sizeof(int));
+        							allOffset += sizeof(int);
+        							projectOffset += sizeof(int);
+        						}
+        						else{
+        							int varCharLen = 0;
+        							memcpy(&varCharLen, (char*)buffer+allOffset, sizeof(int));
+        							memcpy(data+projectOffset, (char*)buffer+allOffset, varCharLen+sizeof(int));
+        							allOffset += varCharLen + sizeof(int);
+        							projectOffset += varCharLen + sizeof(int);
+        						}
+        						notFound = false;
+        						break;
+        					}
+        				}
+        				if(notFound){
+        					if(allAttrs[i].type != TypeVarChar){
+        						allOffset += sizeof(int);
+        					}
+        					else{
+        						int varCharLen = 0;
+        						memcpy(&varCharLen, (char*)buffer+allOffset, sizeof(int));
+        						allOffset += varCharLen + sizeof(int);
+        					}
+        				}
+        			}
+        			return 0;
+        		}
+        		return QE_EOF;
+        };
         // For attribute in vector<Attribute>, name it as rel.attr
-        void getAttributes(vector<Attribute> &attrs) const{};
+        void getAttributes(vector<Attribute> &attrs) const{
+        		attrs.clear();
+        		for(int i=0; i<attrNames.size(); i++){
+        			for(int j=0; j<allAttrs.size(); j++){
+        				if(allAttrs[j].name.compare(attrNames[i])==0){
+        					attrs.push_back(allAttrs[j]);
+        					break;
+        				}
+        			}
+        		}
+        };
 };
 
 class BNLJoin : public Iterator {
