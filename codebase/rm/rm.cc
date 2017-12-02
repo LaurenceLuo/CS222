@@ -770,6 +770,29 @@ RC RelationManager::scan(const string &tableName,
     return 0;
 }
 
+RC RelationManager::indexScan(const string &tableName,
+                              const string &attributeName,
+                              const void *lowKey,
+                              const void *highKey,
+                              bool lowKeyInclusive,
+                              bool highKeyInclusive,
+                              RM_IndexScanIterator &rm_IndexScanIterator)
+{
+    string idxName(tableName+"_"+attributeName+"_ix");
+    IXFileHandle ixfileHandle;
+    if(ix_manager->openFile(idxName,ixfileHandle)!=0){
+        return -1;
+    }
+    vector<Attribute> attrs;
+    getAttributes(tableName, attrs);
+    Attribute attr;
+    for (int i=0; i < attrs.size(); ++i) {
+        if (attrs[i].name.compare(attributeName) == 0) {
+            attr = attrs[i];
+        }
+    }
+    return ix_manager->scan(ixfileHandle,attr,lowKey,highKey,lowKeyInclusive,highKeyInclusive,rm_IndexScanIterator.ix_ScanIterator);
+}
 // Extra credit work
 RC RelationManager::dropAttribute(const string &tableName, const string &attributeName)
 {
@@ -826,6 +849,13 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
     updateCatalog(tableName,attributeName,1);
     return 0;
     
+}
+
+RC RelationManager::destroyIndex(const string &tableName, const string &attributeName){
+    string idxName(tableName+"_"+attributeName+"_ix");
+    ix_manager->destroyFile(idxName);
+    updateCatalog(tableName,attributeName,0);
+    return 0;
 }
 
 RC RelationManager::updateCatalog(const string &tableName, const string &attributeName, int indexed){
@@ -908,7 +938,6 @@ RC RelationManager::updateCatalog(const string &tableName, const string &attribu
     }
     // find attrs
     
-    int pos;
     while(findID==id){
         char* attrName = NULL;
         attrName = new char[varcharLength];

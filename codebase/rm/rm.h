@@ -31,8 +31,10 @@ public:
     ~RM_IndexScanIterator() {}; 	// Destructor
     
     // "key" follows the same format as in IndexManager::insertEntry()
-    RC getNextEntry(RID &rid, void *key) {return RM_EOF;};  	// Get next matching entry
-    RC close() {return -1;};             			// Terminate index scan
+    RC getNextEntry(RID &rid, void *key) {return ix_ScanIterator.getNextEntry(rid,key);};  	// Get next matching entry
+    RC close() {return ix_ScanIterator.close();};            			// Terminate index scan
+    
+    IX_ScanIterator ix_ScanIterator;
 };
 
 // Relation Manager
@@ -76,7 +78,7 @@ public:
     
   RC createIndex(const string &tableName, const string &attributeName);
     
-  RC destroyIndex(const string &tableName, const string &attributeName){};
+  RC destroyIndex(const string &tableName, const string &attributeName);
     
     // indexScan returns an iterator to allow the caller to go through qualified entries in index
   RC indexScan(const string &tableName,
@@ -85,7 +87,7 @@ public:
                  const void *highKey,
                  bool lowKeyInclusive,
                  bool highKeyInclusive,
-               RM_IndexScanIterator &rm_IndexScanIterator){};
+               RM_IndexScanIterator &rm_IndexScanIterator);
     
   RC updateCatalog(const string &tableName, const string &attributeName, int indexed);
 // Extra credit work (10 points)
