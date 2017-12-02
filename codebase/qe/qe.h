@@ -193,14 +193,181 @@ class IndexScan : public Iterator
 class Filter : public Iterator {
     // Filter operator
     public:
+		Iterator *input;
+		Condition condition;
+		vector<Attribute> attrs;
+		void *value;
+
         Filter(Iterator *input,               // Iterator of input R
                const Condition &condition     // Selection condition
         );
-        ~Filter(){};
+        ~Filter(){
+        		free(value);
+        };
 
-        RC getNextTuple(void *data) {return QE_EOF;};
+        RC getNextTuple(void *data) {
+        		while(this->input->getNextTuple(data) != QE_EOF){
+        			// right-hand side is an attribute
+        			// need to get left value and right value and then compare
+        			if(condition.bRhsIsAttr){
+        				void *rightVal;
+        				int offset = 0;
+        				int leftLen = 0;
+        				int rightLen = 0;
+        				AttrType attrType;
+        				for(int i=0; i<attrs.size(); i++){
+        					// get left value
+        					if(attrs[i].name.compare(condition.lhsAttr) == 0){
+							switch(attrs[i].type){
+								case TypeInt: {
+									value = malloc(sizeof(int));
+									memset(value, 0, sizeof(int));
+									memcpy((char *)value, (char *)data + offset, sizeof(int));
+									offset += sizeof(int);
+									break;
+								}
+								case TypeReal: {
+									value = malloc(sizeof(float));
+									memset(value, 0, sizeof(float));
+									memcpy((char *)value, (char *)data + offset, sizeof(float));
+									offset += sizeof(float);
+									break;
+								}
+								case TypeVarChar: {
+									memcpy(&leftLen, (char *)data + offset, sizeof(int));
+									offset += sizeof(int);
+									value = malloc(leftLen+1);
+									memset(value, 0, leftLen+1);
+									memcpy((char *)value, (char *)data + offset, leftLen);
+									offset += leftLen;
+									break;
+								}
+							}
+							attrType = attrs[i].type;
+							continue;
+        					}
+        					// get right value
+        					if(attrs[i].name.compare(condition.rhsAttr) == 0){
+							switch(attrs[i].type){
+								case TypeInt: {
+									rightVal = malloc(sizeof(int));
+									memset(rightVal, 0, sizeof(int));
+									memcpy((char *)rightVal, (char *)data + offset, sizeof(int));
+									offset += sizeof(int);
+									break;
+								}
+								case TypeReal: {
+									rightVal = malloc(sizeof(float));
+									memset(rightVal, 0, sizeof(float));
+									memcpy((char *)rightVal, (char *)data + offset, sizeof(float));
+									offset += sizeof(float);
+									break;
+								}
+								case TypeVarChar: {
+									memcpy(&rightLen, (char *)data + offset, sizeof(int));
+									offset += sizeof(int);
+									rightVal = malloc(rightLen+1);
+									memset(rightVal, 0, rightLen+1);
+									memcpy((char *)rightVal, (char *)data + offset, rightLen);
+									offset += rightLen;
+									break;
+								}
+							}
+							continue;
+        					}
+        					switch(attrs[i].type){
+        						case TypeInt: {
+        							offset += sizeof(int);
+        							break;
+        						}
+        						case TypeReal: {
+        							offset += sizeof(float);
+        							break;
+        						}
+        						case TypeVarChar: {
+        							int varCharLen = 0;
+        							memcpy(&varCharLen, (char *)data + offset, sizeof(int));
+        							offset += varCharLen + sizeof(int);
+        						}
+        					}
+        				}
+        				// compare two values
+    	                if(attrType!=TypeVarChar){
+    	                	//compareNum(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type);
+    	                		if(RBFM_ScanIterator::compareNum(value, condition.op, rightVal, attrType)){
+    	                			free(rightVal);
+    	                			return 0;
+    	                		}
+    	                }
+    	                else{
+    	                	//compareVarChar(int &storedValue_len, void* storedValue, const CompOp compOp, int &valueToCompare_len, const void *valueToCompare);
+    	                		if(RBFM_ScanIterator::compareVarChar(leftLen, value, condition.op, rightLen, rightVal)){
+    	                			free(rightVal);
+    	                			return 0;
+    	                		}
+    	                }
+        			}
+        			else{
+        				// right-hand side is value
+        				// read attribute from data and compare value with condition
+        				int offset = 0;
+        				int leftLen = 0;
+        				int rightLen = 0;
+        				for(int i=0; i<attrs.size(); i++){
+        					if(attrs[i].name.compare(condition.lhsAttr)==0){
+        						switch(attrs[i].type){
+        							case TypeInt: {
+        								value = malloc(sizeof(int));
+        								memset(value, 0, sizeof(int));
+        								memcpy(value, (char *)data+offset, sizeof(int));
+        								offset += sizeof(int);
+        								break;
+        							}
+        							case TypeReal: {
+        								value = malloc(sizeof(float));
+        								memset(value, 0, sizeof(float));
+        								memcpy(value, (char *)data+offset, sizeof(float));
+        								offset += sizeof(float);
+        								break;
+        							}
+        							case TypeVarChar: {
+        								memcpy(&leftLen, (char *)data+offset, sizeof(int));
+        								value = malloc(leftLen+1);
+        								memset(value, 0, leftLen+1);
+        								memcpy(value, (char *)data+offset, leftLen);
+        								offset += leftLen + sizeof(int);
+        								break;
+        							}
+        						}
+        						if(attrs[i].type!=TypeVarChar){
+        							if(RBFM_ScanIterator::compareNum(value, condition.op, condition.rhsValue.data, attrs[i].type)){
+        								return 0;
+        							}
+        						}
+        						else{
+        							memcpy(&rightLen, (char *)condition.rhsValue.data, sizeof(int));
+        							if(RBFM_ScanIterator::compareVarChar(leftLen, value, condition.op, rightLen, condition.rhsValue.data)){
+        								return 0;
+        							}
+        						}
+        					}
+        					if(attrs[i].type != TypeVarChar){
+        						offset += sizeof(int);
+        					}
+        					else{
+        						int varCharLen = 0;
+        						memcpy(&varCharLen, (char *)data+offset, sizeof(int));
+        						offset += varCharLen + sizeof(int);
+        					}
+        				}
+        			}
+        		}
+        		return QE_EOF;
+        };
         // For attribute in vector<Attribute>, name it as rel.attr
-        void getAttributes(vector<Attribute> &attrs) const{};
+        void getAttributes(vector<Attribute> &attrs) const{
+        		this->input->getAttributes(attrs);
+        };
 };
 
 
