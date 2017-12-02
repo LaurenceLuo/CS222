@@ -28,17 +28,17 @@ RC RecordBasedFileManager::createFile(const string &fileName) {
     int currDir=0;
     int nextDir=1;
     if(pfm_manager->createFile(fileName)!=0){
-        cout<< "File " << fileName << " create fail!" << endl << endl;
+        //cout<< "File " << fileName << " create fail!" << endl << endl;
         return -1;
     }
     FileHandle fileHandle;
     if(pfm_manager->openFile(fileName,fileHandle)!=0){
-        cout<< "File " << fileName << " open fail!" << endl << endl;
+        //cout<< "File " << fileName << " open fail!" << endl << endl;
         return -1;
     }
     makeDirectoryPage(fileHandle,currDir,nextDir);
     if(pfm_manager->closeFile(fileHandle)!=0){
-        cout<< "File " << fileName << " close fail!" << endl << endl;
+        //cout<< "File " << fileName << " close fail!" << endl << endl;
         return -1;
     }
     return 0;
@@ -47,7 +47,7 @@ RC RecordBasedFileManager::createFile(const string &fileName) {
 RC RecordBasedFileManager::destroyFile(const string &fileName) {
     PagedFileManager *pfm_manager=PagedFileManager::instance();
     if(pfm_manager->destroyFile(fileName)!=0){
-        cout<< "File " << fileName << " destory fail!" << endl << endl;
+        //cout<< "File " << fileName << " destory fail!" << endl << endl;
         return -1;
     }
     return 0;
@@ -56,7 +56,7 @@ RC RecordBasedFileManager::destroyFile(const string &fileName) {
 RC RecordBasedFileManager::openFile(const string &fileName, FileHandle &fileHandle) {
     PagedFileManager *pfm_manager=PagedFileManager::instance();
     if(pfm_manager->openFile(fileName,fileHandle)!=0){
-        cout<< "File " << fileName << " open fail!" << endl << endl;
+        //cout<< "File " << fileName << " open fail!" << endl << endl;
         return -1;
     }
     fileHandle.getNumberOfPages();

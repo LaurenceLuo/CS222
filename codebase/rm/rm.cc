@@ -105,10 +105,15 @@ RC RelationManager::createCatalog()
 	attr.type = TypeInt;
 	attr.length = (AttrLength)4;
 	colAttrs.push_back(attr);
+    
+    attr.name = "indexed";
+    attr.type = TypeInt;
+    attr.length = (AttrLength)4;
+    colAttrs.push_back(attr);
 
 	rbf_manager->openFile(colName, colFileHandle);
 	for(int pos=1; pos<=tableAttrs.size(); pos++){
-		rc = insertColTuple(colFileHandle, tableAttrs[pos-1], pageNum, pos);
+		rc = insertColTuple(colFileHandle, tableAttrs[pos-1], pageNum, pos, 0);
 	}
 
 	//table_id = 2;
@@ -120,7 +125,7 @@ RC RelationManager::createCatalog()
 	memcpy(colPage+PAGE_SIZE-sizeof(dirDescription), &dirDescription, sizeof(dirDescription));
 	colFileHandle.writePage(pageNum, colPage);
 	for(int pos=1; pos<=colAttrs.size(); pos++){
-		rc = insertColTuple(colFileHandle, colAttrs[pos-1], pageNum, pos);
+		rc = insertColTuple(colFileHandle, colAttrs[pos-1], pageNum, pos, 0);
 	}
 
 	colFileHandle.readPage(1, colPage);
@@ -193,7 +198,7 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 	return 0;
 }
 
-RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos){
+RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos, int indexed){
 	char* page = NULL;
 	page = new char[PAGE_SIZE];
 	memset(page, 0, PAGE_SIZE);
@@ -227,6 +232,8 @@ RC RelationManager::insertColTuple(FileHandle &fileHandle, const Attribute &attr
 	colSize += sizeof(int);
 	memcpy(page+dirDescription.freeSpacePointer+colSize, &pos, sizeof(int));
 	colSize += sizeof(int);
+    memcpy(page+dirDescription.freeSpacePointer+colSize, &indexed, sizeof(int));
+    colSize += sizeof(int);
 
 	// update dirDescription
 	dirDescription.freeSpacePointer += colSize;
@@ -274,7 +281,7 @@ RC RelationManager::createTable(const string &tableName, const vector<Attribute>
 	pageNum = rbf_manager->getFreePage(colFileHandle, colSize);
 	//cout << "pageNum: " << pageNum << endl;
 	for(int pos=1; pos<=attrs.size(); pos++){
-		rc = insertColTuple(colFileHandle, attrs[pos-1], pageNum, pos);
+		rc = insertColTuple(colFileHandle, attrs[pos-1], pageNum, pos, 0);
 	}
 	// update table id
 	char *colPage = NULL;
@@ -330,7 +337,7 @@ RC RelationManager::deleteTable(const string &tableName)
 			name = new char[varcharLength];
 			memset(name, 0, varcharLength+1);
 			memcpy(name, tablePage+offset, varcharLength);
-			cout << "tableName in Tables: " << name << endl;
+			//cout << "tableName in Tables: " << name << endl;
 			offset += varcharLength;
 			if(memcmp(name, TableName, tableName.length())==0)
 				break;
@@ -399,7 +406,7 @@ RC RelationManager::deleteTable(const string &tableName)
 			}
 			memcpy(&varcharLength, colPage+offset, sizeof(short));
 			//cout << "varcharLength: " << varcharLength << endl;
-			offset += sizeof(short) + varcharLength + sizeof(int)*3;
+			offset += sizeof(short) + varcharLength + sizeof(int)*4;
 			// not in this page
 			if(offset > PAGE_SIZE-sizeof(DirDescription))
 				break;
@@ -523,13 +530,14 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
     		colPage = new char[PAGE_SIZE];
     		memset(colPage, 0, PAGE_SIZE);
 		if(colFileHandle.readPage(pageNum,colPage)!=0){
-			cout << "pageNum: " << pageNum << endl;
-			cout<<"readPage from getAttributes fail!"<<endl;
+			//cout << "pageNum???: " << pageNum << endl;
+			//cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
 		}
 		// find position(offset) of table in "Columns" by table_id
 		offset = 0;
 		while(true){
+            //cout<<"offset: "<<offset<<endl;
 			memcpy(&findID, colPage+offset, sizeof(int));
 			//cout << "findID: " << findID << endl;
 			offset += sizeof(int);
@@ -537,7 +545,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 				break;
 			memcpy(&varcharLength, colPage+offset, sizeof(short));
 			//cout << "varcharLength: " << varcharLength << endl;
-			offset += sizeof(short) + varcharLength + sizeof(int)*3;
+			offset += sizeof(short) + varcharLength + sizeof(int)*4;
 			// not in this page
 			if(offset > PAGE_SIZE-sizeof(DirDescription))
 				break;
@@ -570,13 +578,14 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		memcpy(&pos, colPage+offset, sizeof(int));
 		//cout << "pos: " << pos << endl;
 		offset += sizeof(int);
+        offset += sizeof(int);//indexed
 		attrs.push_back(attr);
 		memcpy(&findID, colPage+offset, sizeof(int));
 		offset += sizeof(int);
 		//cout << "findID: " << findID << endl;
         delete []attrName;
 	}
-	//colPage = NULL;
+	colPage = NULL;
 	delete []colPage;
     rbf_manager->closeFile(colFileHandle);
     return 0;
@@ -776,7 +785,6 @@ RC RelationManager::addAttribute(const string &tableName, const Attribute &attr)
 RC RelationManager::createIndex(const string &tableName, const string &attributeName){
     string ix_Name(tableName+"_"+attributeName+"_ix");
     if(ix_manager->createFile(ix_Name)!=0){
-        cout<<"?????"<<endl;
         return -1;
     }
     vector<Attribute> attrs;
@@ -815,9 +823,122 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
     
     free(returnedData);
     
-    //changeIndexedInCatalog?
+    updateCatalog(tableName,attributeName,1);
     return 0;
     
+}
+
+RC RelationManager::updateCatalog(const string &tableName, const string &attributeName, int indexed){
+    RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
+    FileHandle tableFileHandle, colFileHandle;
+    Attribute attr;
+    int offset, id, findID;
+    short varcharLength;
+    char* name = NULL;
+    const char* TableName = tableName.c_str();
+    
+    rbf_manager->openFile("Tables", tableFileHandle);
+
+    for(int pageNum=1; pageNum<=tableFileHandle.getNumberOfPages(); pageNum++){
+        char* tablePage = NULL;
+        tablePage = new char[PAGE_SIZE];
+        memset(tablePage, 0, PAGE_SIZE);
+        if(tableFileHandle.readPage(pageNum,tablePage)!=0){
+            return -1;
+        }
+        offset = 0;
+        // Find table id by "Tables"
+        while(true){
+            memcpy(&id, tablePage+offset, sizeof(int));
+            offset += sizeof(int);
+            memcpy(&varcharLength, tablePage+offset, sizeof(short));
+            offset += sizeof(short);
+            name = NULL;
+            name = new char[varcharLength];
+            memset(name, 0, varcharLength+1);
+            memcpy(name, tablePage+offset, varcharLength);
+            string str_name = name;
+
+            offset += varcharLength;
+
+            if(memcmp(name, TableName, tableName.length())==0){
+                break;
+            }
+            offset += varcharLength;
+            delete []name;
+            // Not in this page
+            if(offset > PAGE_SIZE-sizeof(DirDescription))
+                break;
+        }
+        if(memcmp(name, TableName, tableName.length())==0){
+            delete []tablePage;
+            delete []name;
+            break;
+        }
+        delete []tablePage;
+    }
+    rbf_manager->closeFile(tableFileHandle);
+    
+    // Find attrs by "Columns"
+    rbf_manager->openFile("Columns", colFileHandle);
+    char* colPage = NULL;
+    int pageNum;
+    for(pageNum=1; pageNum<=colFileHandle.getNumberOfPages(); pageNum++){
+        colPage = new char[PAGE_SIZE];
+        memset(colPage, 0, PAGE_SIZE);
+        if(colFileHandle.readPage(pageNum,colPage)!=0){
+            return -1;
+        }
+        // find position(offset) of table in "Columns" by table_id
+        offset = 0;
+        while(true){
+            memcpy(&findID, colPage+offset, sizeof(int));
+            offset += sizeof(int);
+            if(findID==id)
+                break;
+            memcpy(&varcharLength, colPage+offset, sizeof(short));
+            offset += sizeof(short) + varcharLength + sizeof(int)*4;
+            // not in this page
+            if(offset > PAGE_SIZE-sizeof(DirDescription))
+                break;
+        }
+        if(findID==id)
+            break;
+        delete []colPage;
+    }
+    // find attrs
+    
+    int pos;
+    while(findID==id){
+        char* attrName = NULL;
+        attrName = new char[varcharLength];
+        memcpy(&varcharLength, colPage+offset, sizeof(short));
+        offset += sizeof(short);
+        memset(attrName, 0, varcharLength+1);
+        memcpy(attrName, colPage+offset, varcharLength);
+        offset += varcharLength;
+        //memcpy(&attr.type, colPage+offset, sizeof(int));
+        offset += sizeof(int);
+        //memcpy(&attr.length, colPage+offset, sizeof(int));
+        offset += sizeof(int);
+        //memcpy(&pos, colPage+offset, sizeof(int));
+        offset += sizeof(int);
+        if(memcmp(attrName, attributeName.c_str(), attributeName.length())==0){
+            memcpy(colPage+offset,&indexed,sizeof(int));
+        }
+        offset += sizeof(int);//indexed
+        //attrs.push_back(attr);
+        memcpy(&findID, colPage+offset, sizeof(int));
+        offset += sizeof(int);
+        delete []attrName;
+    }
+    
+    colFileHandle.writePage(pageNum,colPage);
+    //colPage = NULL;
+    delete []colPage;
+    rbf_manager->closeFile(colFileHandle);
+    return 0;
+
 }
 
 

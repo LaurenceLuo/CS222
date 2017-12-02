@@ -86,7 +86,8 @@ public:
                  bool lowKeyInclusive,
                  bool highKeyInclusive,
                RM_IndexScanIterator &rm_IndexScanIterator){};
-
+    
+  RC updateCatalog(const string &tableName, const string &attributeName, int indexed);
 // Extra credit work (10 points)
 public:
   RC addAttribute(const string &tableName, const Attribute &attr);
@@ -99,7 +100,7 @@ private:
 
   bool tableExist(const string &tableName);
   RC insertTableTuple(FileHandle &fileHandle, const string &tableName, int pageNum);	// insert tuple to table "Tables"
-  RC insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos);		// insert tuple to table "Columns"
+  RC insertColTuple(FileHandle &fileHandle, const Attribute &attr, int pageNum, int pos, int indexed);		// insert tuple to table "Columns"
 
 protected:
   RelationManager();
