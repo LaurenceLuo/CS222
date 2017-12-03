@@ -211,7 +211,7 @@ class Filter : public Iterator {
         			// need to get left value and right value and then compare
         			if(condition.bRhsIsAttr){
         				void *rightVal;
-        				int offset = 0;
+        				int offset = ceil((double)attrs.size()/CHAR_BIT);
         				int leftLen = 0;
         				int rightLen = 0;
         				AttrType attrType;
@@ -310,7 +310,7 @@ class Filter : public Iterator {
         			else{
         				// right-hand side is value
         				// read attribute from data and compare value with condition
-        				int offset = 0;
+        				int offset = ceil((double)attrs.size()/CHAR_BIT);
         				int leftLen = 0;
         				int rightLen = 0;
         				for(int i=0; i<attrs.size(); i++){
