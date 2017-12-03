@@ -380,7 +380,7 @@ class Project : public Iterator {
 		vector<Attribute> projectAttrs;
 		void *buffer;
         Project(Iterator *input,                    // Iterator of input R
-              const vector<string> &attrNames){};   // vector containing attribute names
+              const vector<string> &attrNames);   // vector containing attribute names
         ~Project(){};
 
         RC getNextTuple(void *data) {
@@ -393,14 +393,14 @@ class Project : public Iterator {
         				for(int j=0; j<projectAttrs.size(); j++){
         					if(allAttrs[i].name.compare(projectAttrs[j].name)==0){
         						if(projectAttrs[j].type != TypeVarChar){
-        							memcpy(data+projectOffset, (char*)buffer+allOffset, sizeof(int));
+        							memcpy((char*)data+projectOffset, (char*)buffer+allOffset, sizeof(int));
         							allOffset += sizeof(int);
         							projectOffset += sizeof(int);
         						}
         						else{
         							int varCharLen = 0;
         							memcpy(&varCharLen, (char*)buffer+allOffset, sizeof(int));
-        							memcpy(data+projectOffset, (char*)buffer+allOffset, varCharLen+sizeof(int));
+        							memcpy((char*)data+projectOffset, (char*)buffer+allOffset, varCharLen+sizeof(int));
         							allOffset += varCharLen + sizeof(int);
         							projectOffset += varCharLen + sizeof(int);
         						}

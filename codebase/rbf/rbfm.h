@@ -100,6 +100,8 @@ public:
     const vector<string> &attributeNames); // a list of projected attributes
   RC getNextRecord(RID &rid, void *data); //{ return RBFM_EOF; };
   RC close(); //{ return -1; };
+  static bool compareNum(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type);
+  static bool compareVarChar(int &storedValue_len, void* storedValue, const CompOp compOp, int &valueToCompare_len, const void *valueToCompare);
 
 private:
   FileHandle _fileHandle;
@@ -109,8 +111,6 @@ private:
   void *_value;                    // used in the comparison
   vector<string> _attributeNames; // a list of projected attributes
   RID _rid;
-  bool compareNum(void* storedValue, const CompOp compOp, const void *valueToCompare, AttrType type);
-  bool compareVarChar(int &storedValue_len, void* storedValue, const CompOp compOp, int &valueToCompare_len, const void *valueToCompare);
   RC writeIntoData(void *returnedData, const vector<Attribute> &recordDescriptor, const vector<string> &attributeNames, void *data);
 };
 
