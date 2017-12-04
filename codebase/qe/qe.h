@@ -332,10 +332,12 @@ class Filter : public Iterator {
         							}
         							case TypeVarChar: {
         								memcpy(&leftLen, (char *)data+offset, sizeof(int));
+                                        offset+=sizeof(int);
+                                        //cout<<"rightLen: "<<rightLen<<endl;
         								value = malloc(leftLen+1);
         								memset(value, 0, leftLen+1);
-        								memcpy(value, (char *)data+offset, leftLen);
-        								offset += leftLen + sizeof(int);
+        								memcpy((char*)value, (char *)data+offset, leftLen);
+        								offset += leftLen;
         								break;
         							}
         						}
@@ -346,7 +348,10 @@ class Filter : public Iterator {
         						}
         						else{
         							memcpy(&rightLen, (char *)condition.rhsValue.data, sizeof(int));
-        							if(RBFM_ScanIterator::compareVarChar(leftLen, value, condition.op, rightLen, condition.rhsValue.data)){
+                                    char* rightVal=new char[rightLen];
+                                    memcpy(rightVal,(char *)condition.rhsValue.data+sizeof(int), rightLen);
+        							if(RBFM_ScanIterator::compareVarChar(leftLen, value, condition.op, rightLen, rightVal)){
+                                        
         								return 0;
         							}
         						}

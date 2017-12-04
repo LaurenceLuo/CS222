@@ -82,7 +82,7 @@ int testCase_4() {
 	}
 
 	if (expectedResultCnt != actualResultCnt) {
-		cerr << "***** The number of returned tuple is not correct. *****" << endl;
+		cerr << "***** The number of returned tuple is not correct. ***** " << actualResultCnt<<endl;
 		rc = fail;
 	}
 
