@@ -176,6 +176,7 @@ IMPORTANT, PLEASE READ: All methods below this comment (other than the construct
 public:
   int getFreePage(FileHandle &fileHandle, int formattedRecordSize);
   RC updateDirectoryPage(FileHandle &fileHandle, const RID &rid, int freeSpace);
+    int getRecordSize(const vector<Attribute> &recordDescriptor, const void *data);//including nullIndicator
 
 protected:
   RecordBasedFileManager();
@@ -184,7 +185,6 @@ protected:
 private:
   static RecordBasedFileManager *_rbf_manager;
     
-    int getRecordSize(const vector<Attribute> &recordDescriptor, const void *data);//including nullIndicator
     int getNullIndicatorSize(const vector<Attribute> &recordDescriptor);
     int formatRecord(const vector<Attribute> &recordDescriptor, const void *data, char * &formattedRecord);//return formatted record size
     RC makeDirectoryPage(FileHandle &fileHandle, int &currDir, int &nextDir);

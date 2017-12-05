@@ -816,7 +816,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data){
     RecordBasedFileManager *_rbfm=RecordBasedFileManager::instance();
     char *page=new char[PAGE_SIZE];
     if(_rid.pageNum>_fileHandle.getNumberOfPages()){
-        cout<<"Invalid pageNum: "<<_rid.pageNum<<" for getNextRecord!"<<endl;
+        //cout<<"Invalid pageNum: "<<_rid.pageNum<<" for getNextRecord!"<<endl;
         return -1;
     }
     if(_fileHandle.readPage(_rid.pageNum,page)!=0){

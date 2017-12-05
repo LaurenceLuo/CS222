@@ -6,6 +6,7 @@
 #include "../rbf/rbfm.h"
 #include "../rm/rm.h"
 #include "../ix/ix.h"
+#include <map>
 
 #define QE_EOF (-1)  // end of the index scan
 
@@ -15,14 +16,363 @@ typedef enum{ MIN=0, MAX, COUNT, SUM, AVG } AggregateOp;
 
 // The following functions use the following
 // format for the passed data.
-//    For INT and REAL: use 4 bytes
-//    For VARCHAR: use 4 bytes for the length followed by the characters
+//    For INT and REAL: use 4 chars
+//    For VARCHAR: use 4 chars for the length followed by the characters
 
 struct Value {
     AttrType type;          // type of value
     void     *data;         // value
 };
 
+class Pair {
+public:
+    int pos;
+    int length;
+    Pair(int pos, int length) {
+        this->pos = pos;
+        this->length = length;
+    }
+    
+    Pair& operator=(const Pair &p) {
+        this->pos = p.pos;
+        this->length = p.length;
+        return *this;
+    }
+    
+    bool operator==(const Pair &p) const {
+        return this->pos == p.pos && this->length == p.length;
+    }
+};
+
+class Key {
+public:
+    AttrType type;
+    void* data;
+    
+    Key(AttrType type, void* data) {
+        this->type = type;
+        switch(type){
+            case TypeInt:
+                this->data = malloc(sizeof(int));
+                memcpy(this->data, data, sizeof(int));
+                break;
+            case TypeReal:
+                this->data = malloc(sizeof(float));
+                memcpy(this->data, data, sizeof(float));
+                break;
+            case TypeVarChar:
+                int rightLength;
+                memcpy(&rightLength,data,sizeof(int));
+                this->data =  malloc(rightLength + sizeof(int));
+                memcpy(this->data, data, rightLength + sizeof(int));
+                break;
+        }
+    }
+    
+    Key(const Key &p) {
+        this->type = p.type;
+        switch(type){
+            case TypeInt:
+                this->data = malloc(sizeof(int));
+                memcpy(this->data, p.data, sizeof(int));
+                break;
+            case TypeReal:
+                this->data = malloc(sizeof(int));
+                memcpy(this->data, p.data, sizeof(float));
+                break;
+            case TypeVarChar:
+                int rightLength;
+                memcpy(&rightLength,data,sizeof(int));
+                this->data = malloc(rightLength + sizeof(int));
+                memcpy(this->data, p.data, rightLength + sizeof(int));
+                break;
+        }
+    }
+    
+    ~Key() {
+        free(data);
+    }
+    
+    Key& operator=(const Key &p) {
+        this->type = p.type;
+        switch(type){
+            case TypeInt:
+                memcpy(this->data, p.data, sizeof(int));
+                break;
+            case TypeReal:
+                memcpy(this->data, p.data, sizeof(float));
+                break;
+            case TypeVarChar:
+                int rightLength;
+                memcpy(&rightLength,p.data,sizeof(int));
+                this->data = malloc(rightLength + sizeof(int));
+                memcpy(this->data, p.data, rightLength + sizeof(int));
+                break;
+        }
+        return *this;
+    }
+    
+    bool operator==(const Key &p) const {
+        switch(type){
+            case TypeInt:
+                return *(int*) (data) ==  *(int*) (p.data);
+            case TypeReal:
+                return *(float*) (data) == *(float*) (p.data);
+            case TypeVarChar:
+                int leftLength;
+                memcpy(&leftLength,data,sizeof(int));
+                string leftValue((char*)data + sizeof(int), leftLength);
+                int rightLength;
+                memcpy(&rightLength,p.data,sizeof(int));
+                string rightValue((char*) (p.data) + sizeof(int), rightLength);
+                return strcmp(leftValue.c_str(), rightValue.c_str()) == 0;
+        }
+    }
+    
+    bool operator>(const Key &p) const {
+        switch(type){
+            case TypeInt:
+                return *(int*) (data) >  *(int*) (p.data);
+            case TypeReal:
+                return *(float*) (data) > *(float*) (p.data);
+            case TypeVarChar:
+                int leftLength;
+                memcpy(&leftLength,data,sizeof(int));
+                string leftValue((char*)data + sizeof(int), leftLength);
+                int rightLength;
+                memcpy(&rightLength,p.data,sizeof(int));
+                string rightValue((char*) (p.data) + sizeof(int), rightLength);
+                return strcmp(leftValue.c_str(), rightValue.c_str()) > 0;
+        }
+    }
+    
+    bool operator>=(const Key &p) const {
+        switch(type){
+            case TypeInt:
+                return *(int*) (data) >=  *(int*) (p.data);
+            case TypeReal:
+                return *(float*) (data) >= *(float*) (p.data);
+            case TypeVarChar:
+                int leftLength;
+                memcpy(&leftLength,data,sizeof(int));
+                string leftValue((char*)data + sizeof(int), leftLength);
+                int rightLength;
+                memcpy(&rightLength,p.data,sizeof(int));
+                string rightValue((char*) (p.data) + sizeof(int), rightLength);
+                return strcmp(leftValue.c_str(), rightValue.c_str()) >= 0;
+        }
+    }
+    
+    bool operator<(const Key &p) const {
+        switch(type){
+            case TypeInt:
+                return *(int*) (data) <  *(int*) (p.data);
+            case TypeReal:
+                return *(float*) (data) < *(float*) (p.data);
+            case TypeVarChar:
+                int leftLength;
+                memcpy(&leftLength,data,sizeof(int));
+                string leftValue((char*)data + sizeof(int), leftLength);
+                int rightLength;
+                memcpy(&rightLength,p.data,sizeof(int));
+                string rightValue((char*) (p.data) + sizeof(int), rightLength);
+                return strcmp(leftValue.c_str(), rightValue.c_str()) < 0;
+        }
+    }
+    
+    bool operator<=(const Key &p) const {
+        switch(type){
+            case TypeInt:
+                return *(int*) (data) <=  *(int*) (p.data);
+            case TypeReal:
+                return *(float*) (data) <= *(float*) (p.data);
+            case TypeVarChar:
+                int leftLength;
+                memcpy(&leftLength,data,sizeof(int));
+                string leftValue((char*)data + sizeof(int), leftLength);
+                int rightLength;
+                memcpy(&rightLength,p.data,sizeof(int));
+                string rightValue((char*) (p.data) + sizeof(int), rightLength);
+                return strcmp(leftValue.c_str(), rightValue.c_str()) <= 0;
+        }
+    }
+};
+
+class JoinUtil{
+public:
+    static void getValueAt(void *data, vector<Attribute>& attrs, int index,
+                           void* value) {
+        
+        int NullIndicatorSize = (double)ceil(attrs.size() / 8.0);
+        
+        //char nullIndicatorValue = 1 << (7 - (index % 8));
+        //cout<<"size of nullIndicatorValue: "<<NullIndicatorSize<<endl;
+        //char nullIndicatorFromData;
+        //memcpy(&nullIndicatorFromData, (char*) data + index / 8, sizeof(char));
+        //cout<<"size of nullIndicatorFromData: "<<sizeof(nullIndicatorFromData)<<endl;
+        //if ((nullIndicatorValue & nullIndicatorFromData) != 0) {
+            //return;
+        //}
+
+        int offset = NullIndicatorSize;
+        int nullIndicatorOffset = 0;
+        int short standardNullIndicator = 0x80;
+        char nullIndicator = 0;
+        
+        for (int i = 0; i < index; i++) {
+            if (i % 8 == 0) {
+                memcpy(&nullIndicator, (char*) data + nullIndicatorOffset, NullIndicatorSize);
+                nullIndicatorOffset++;
+                standardNullIndicator = 0x80;
+            }
+            
+            if ((nullIndicator & standardNullIndicator) == 0) {
+                switch(attrs[i].type){
+                    case TypeInt:
+                        offset += sizeof(int);
+                        break;
+                    case TypeReal:
+                        offset += sizeof(float);
+                        break;
+                    case TypeVarChar:
+                        int varLength;
+                        memcpy(&varLength,(char*) data + offset,sizeof(int));
+                        offset += varLength;
+                        offset += sizeof(int);
+                        break;
+                }
+            }
+            
+            standardNullIndicator = standardNullIndicator >> 1;
+        }
+        switch(attrs[index].type){
+            case TypeInt:
+                memcpy(value, (char*) data + offset, sizeof(int));
+                break;
+            case TypeReal:
+                memcpy(value, (char*) data + offset, sizeof(float));
+                break;
+            case TypeVarChar:
+                int varLength;
+                memcpy(&varLength,(char*) data + offset,sizeof(int));
+                memcpy(value, (char*) data + offset, sizeof(int) + varLength);
+                break;
+                
+        }
+    };
+    
+    static int findAttributePos(vector<Attribute> &attrs, const string name){
+        for(int i = 0;i<attrs.size();i++){
+            if(strcmp(attrs[i].name.c_str(),name.c_str())==0)
+                return i;
+        }
+        return -1;
+    };
+    
+    static void combineData(char* leftData, vector<Attribute> &leftAttrs, char* rightData, vector<Attribute> &rightAttrs, char* combinedRes){
+        int totalSize = leftAttrs.size() + rightAttrs.size();
+        int offset = (double)ceil(totalSize/8.0);
+        
+        int short standardNullIndicator = 0x80;
+        int short nullIndicator = 0;
+        int short nullIndicatorOffset = 0;
+        
+        int leftOffset = ceil(leftAttrs.size()/8.0);
+        int rightOffset = ceil(rightAttrs.size()/8.0);
+        
+        int short resNullIndicator = 0;
+        int resNullIndicatorOffset = 0;
+        
+        
+        memcpy(&nullIndicator,leftData,sizeof(char));
+        nullIndicatorOffset++;
+        for(int i=0;i<leftAttrs.size();i++){
+            if(i!=0&&i%8==0){
+                memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
+                resNullIndicatorOffset++;
+                
+                memcpy(&nullIndicator,leftData + nullIndicatorOffset,sizeof(char));
+                standardNullIndicator = 0x80;
+                nullIndicatorOffset++;
+            }
+            if((nullIndicator&standardNullIndicator)==0){
+                switch(leftAttrs[i].type){
+                    case TypeInt:
+                        leftOffset += sizeof(int);
+                        break;
+                    case TypeReal:
+                        leftOffset += sizeof(float);
+                        break;
+                    case TypeVarChar:
+                        int varLength;
+                        memcpy(&varLength,(char*) leftData + leftOffset,sizeof(int));
+                        leftOffset += varLength;
+                        leftOffset += sizeof(int);
+                        break;
+                }
+            }else{
+                resNullIndicator |= standardNullIndicator;
+            }
+            standardNullIndicator = standardNullIndicator>>1;
+        }
+        
+        if(standardNullIndicator == 0){
+            memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
+            resNullIndicatorOffset++;
+            resNullIndicator = 0;
+            standardNullIndicator = 0x80;
+        }
+        
+        int short rightStandardNullIndicator = 0x80;
+        nullIndicatorOffset = 0;
+        nullIndicator = 0;
+        
+        for(int i=0;i<rightAttrs.size();i++){
+            if(i%8==0){
+                memcpy(&nullIndicator,rightData + nullIndicatorOffset,sizeof(char));
+                rightStandardNullIndicator = 0x80;
+                nullIndicatorOffset++;
+            }
+            if((nullIndicator&rightStandardNullIndicator)==0){
+                switch(rightAttrs[i].type){
+                    case TypeInt:
+                        rightOffset += sizeof(int);
+                        break;
+                    case TypeReal:
+                        rightOffset += sizeof(float);
+                        break;
+                    case TypeVarChar:
+                        int varLength;
+                        memcpy(&varLength,(char*) rightData + rightOffset,sizeof(int));
+                        rightOffset += varLength;
+                        rightOffset += sizeof(int);
+                        break;
+                        
+                }
+            }else{
+                resNullIndicator |= standardNullIndicator;
+            }
+            
+            standardNullIndicator = standardNullIndicator >>1;
+            rightStandardNullIndicator = rightStandardNullIndicator >>1;
+            if(standardNullIndicator == 0){
+                memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
+                resNullIndicatorOffset++;
+                resNullIndicator = 0;
+                standardNullIndicator = 0x80;
+            }
+        }
+        memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
+        
+        int leftNullSize = ceil(leftAttrs.size()/8.0);
+        int leftDataLength = leftOffset-leftNullSize;
+        memcpy(combinedRes+offset,leftData+leftNullSize,leftDataLength);
+        
+        int rightNullSize = ceil(rightAttrs.size()/8.0);
+        int rightDataLength = rightOffset - rightNullSize;
+        memcpy(combinedRes+offset+leftDataLength,rightData+rightNullSize,rightDataLength);
+    };
+};
 
 struct Condition {
     string  lhsAttr;        // left-hand side attribute
@@ -62,7 +412,7 @@ class TableScan : public Iterator
             rm.getAttributes(tableName, attrs);
 
             // Get Attribute Names from RM
-            unsigned i;
+            int i;
             for(i = 0; i < attrs.size(); ++i)
             {
                 // convert to char *
@@ -95,7 +445,7 @@ class TableScan : public Iterator
         {
             attrs.clear();
             attrs = this->attrs;
-            unsigned i;
+            int i;
 
             // For attribute in vector<Attribute>, name it as rel.attr
             for(i = 0; i < attrs.size(); ++i)
@@ -171,7 +521,7 @@ class IndexScan : public Iterator
         {
             attrs.clear();
             attrs = this->attrs;
-            unsigned i;
+            int i;
 
             // For attribute in vector<Attribute>, name it as rel.attr
             for(i = 0; i < attrs.size(); ++i)
@@ -445,17 +795,41 @@ class Project : public Iterator {
 class BNLJoin : public Iterator {
     // Block nested-loop join operator
     public:
-        BNLJoin(Iterator *leftIn,            // Iterator of input R
+    Iterator *left;
+    TableScan *right;
+    
+    vector<Attribute> leftAttrs;
+    vector<Attribute> rightAttrs;
+    
+    Condition condition;
+    AttrType attrType;
+    
+    int lCondAttrIndex;
+    int rCondAttrIndex;
+    
+    int bufferSize;
+    
+    void* blockData;
+    map<Key, vector<Pair> > blockMapper;
+    
+    int maxRecrodLength;
+    
+    //int currentBlockMapperIndex;
+    int currentProperVectorIndex;
+    
+    BNLJoin(Iterator *leftIn,            // Iterator of input R
                TableScan *rightIn,           // TableScan Iterator of input S
                const Condition &condition,   // Join condition
                const unsigned numPages       // # of pages that can be loaded into memory,
 			                                 //   i.e., memory block size (decided by the optimizer)
-        ){};
-        ~BNLJoin(){};
+    );
+    ~BNLJoin();
 
-        RC getNextTuple(void *data){return QE_EOF;};
-        // For attribute in vector<Attribute>, name it as rel.attr
-        void getAttributes(vector<Attribute> &attrs) const{};
+    RC getNextTuple(void *data);
+    // For attribute in vector<Attribute>, name it as rel.attr
+    void getAttributes(vector<Attribute> &attrs) const;
+    
+    RC loadBlock();
 };
 
 
@@ -480,7 +854,7 @@ class GHJoin : public Iterator {
       GHJoin(Iterator *leftIn,               // Iterator of input R
             Iterator *rightIn,               // Iterator of input S
             const Condition &condition,      // Join condition (CompOp is always EQ)
-            const unsigned numPartitions     // # of partitions for each relation (decided by the optimizer)
+            const int numPartitions     // # of partitions for each relation (decided by the optimizer)
       ){};
       ~GHJoin(){};
 
