@@ -105,7 +105,7 @@ RC RelationManager::createCatalog()
 	attr.type = TypeInt;
 	attr.length = (AttrLength)4;
 	colAttrs.push_back(attr);
-    
+
     attr.name = "indexed";
     attr.type = TypeInt;
     attr.length = (AttrLength)4;
@@ -619,7 +619,7 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 		cout << "closeFile in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
-    
+
     int indexed=0;
     for(int i=0;i<recordDescriptor.size();i++){
         string ix_Name(tableName+"_"+recordDescriptor[i].name+"_ix");
@@ -773,7 +773,7 @@ RC RelationManager::scan(const string &tableName,
 		cout << "openFile in scan in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
-    
+
 	getAttributes(tableName, recordDescriptor);
     //cout<<"filehandle.getNumber: "<<fileHandle.getNumberOfPages()<<endl;
 	rc = rbf_manager->scan(fileHandle, recordDescriptor, conditionAttribute, compOp, value, attributeNames, rm_ScanIterator.rbfm_iterator);
@@ -842,12 +842,12 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
     if(scan(tableName,"", NO_OP, NULL, attributeNames, rmsi)!=0){
         return -1;
     }
-    
+
     IXFileHandle ixfileHandle;
     if(ix_manager->openFile(ix_Name,ixfileHandle)!=0){
         return -1;
     }
-    
+
     RID rid;
     void *returnedData;
     if(attr.type==TypeVarChar)
@@ -858,12 +858,18 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
     {
         ix_manager->insertEntry(ixfileHandle, attr, returnedData, rid);
     }
+<<<<<<< HEAD
     
     free(returnedData);
     
+=======
+
+    free(returnedData);
+
+>>>>>>> 7190cfdab71ab5bc009769c88ee2946b0c60fc7a
     updateCatalog(tableName,attributeName,1);
     return 0;
-    
+
 }
 
 RC RelationManager::destroyIndex(const string &tableName, const string &attributeName){
@@ -881,7 +887,7 @@ RC RelationManager::updateCatalog(const string &tableName, const string &attribu
     short varcharLength;
     char* name = NULL;
     const char* TableName = tableName.c_str();
-    
+
     rbf_manager->openFile("Tables", tableFileHandle);
 
     for(int pageNum=1; pageNum<=tableFileHandle.getNumberOfPages(); pageNum++){
@@ -923,7 +929,7 @@ RC RelationManager::updateCatalog(const string &tableName, const string &attribu
         delete []tablePage;
     }
     rbf_manager->closeFile(tableFileHandle);
-    
+
     // Find attrs by "Columns"
     rbf_manager->openFile("Columns", colFileHandle);
     char* colPage = NULL;
@@ -952,7 +958,7 @@ RC RelationManager::updateCatalog(const string &tableName, const string &attribu
         delete []colPage;
     }
     // find attrs
-    
+
     while(findID==id){
         char* attrName = NULL;
         attrName = new char[varcharLength];
@@ -976,7 +982,7 @@ RC RelationManager::updateCatalog(const string &tableName, const string &attribu
         offset += sizeof(int);
         delete []attrName;
     }
-    
+
     colFileHandle.writePage(pageNum,colPage);
     //colPage = NULL;
     delete []colPage;
