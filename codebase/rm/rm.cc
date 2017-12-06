@@ -619,6 +619,19 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 		cout << "closeFile in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
+    
+    int indexed=0;
+    for(int i=0;i<recordDescriptor.size();i++){
+        string ix_Name(tableName+"_"+recordDescriptor[i].name+"_ix");
+        IXFileHandle ixfileHandle;
+        if(ix_manager->openFile(ix_Name,ixfileHandle)!=0){
+            //cout<<"No index for attribute "<<recordDescriptor[i].name<<endl;
+            continue;
+        }
+        ix_manager->insertEntry(ixfileHandle, recordDescriptor[i], data, rid);
+        ix_manager->closeFile(ixfileHandle);
+        indexed++;
+    }
     return 0;
 }
 
@@ -760,8 +773,9 @@ RC RelationManager::scan(const string &tableName,
 		cout << "openFile in scan in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
+    
 	getAttributes(tableName, recordDescriptor);
-
+    //cout<<"filehandle.getNumber: "<<fileHandle.getNumberOfPages()<<endl;
 	rc = rbf_manager->scan(fileHandle, recordDescriptor, conditionAttribute, compOp, value, attributeNames, rm_ScanIterator.rbfm_iterator);
 	if(rc){
 		cout << "scan in Table: " << tableName << " failed!" << endl;
@@ -821,7 +835,7 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
             //cout<<"Found attr: "<<attr.name<<endl;
         }
     }
-    RM_ScanIterator rmsi;
+    /*RM_ScanIterator rmsi;
     vector<string> attributeNames;
     attributeNames.push_back(attributeName);
     if(scan(tableName,"", NO_OP, NULL, attributeNames, rmsi)!=0){
@@ -844,7 +858,7 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
         ix_manager->insertEntry(ixfileHandle, attr, returnedData, rid);
     }
     
-    free(returnedData);
+    free(returnedData);*/
     
     updateCatalog(tableName,attributeName,1);
     return 0;

@@ -951,7 +951,7 @@ class INLJoin : public Iterator {
                     				lOffset += sizeof(int);
                     			}
                     			for(i=0; i<rightAttrs.size(); i++){
-                    				memcpy(data+lOffset, (char*)buffer+rOffset, sizeof(int));
+                    				memcpy((char*)data+lOffset, (char*)buffer+rOffset, sizeof(int));
                     				lOffset += sizeof(int);
                     				rOffset += sizeof(int);
                     			}
@@ -971,7 +971,7 @@ class INLJoin : public Iterator {
                     			for(i=0; i<rightAttrs.size(); i++){
                     				int varCharLen = 0;
                     				memcpy(&varCharLen, (char*)buffer + rOffset, sizeof(int));
-                    				memcpy(data+lOffset, (char*)buffer + rOffset, varCharLen+sizeof(int));
+                    				memcpy((char*)data+lOffset, (char*)buffer + rOffset, varCharLen+sizeof(int));
                     				lOffset += varCharLen + sizeof(int);
                     				rOffset += varCharLen + sizeof(int);
                     			}
