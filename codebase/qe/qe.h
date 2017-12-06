@@ -510,9 +510,11 @@ class IndexScan : public Iterator
         RC getNextTuple(void *data)
         {
             int rc = iter->getNextEntry(rid, key);
+            //cout<<"rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
             if(rc == 0)
             {
                 rc = rm.readTuple(tableName.c_str(), rid, data);
+                //cout<<"rid.pageNum: "<<rid.pageNum<<" rid.slotNum: "<<rid.slotNum<<endl;
             }
             return rc;
         };
@@ -842,6 +844,8 @@ class INLJoin : public Iterator {
 		vector<Attribute> leftAttrs;
 		vector<Attribute> rightAttrs;
 		void *buffer;
+        void *lData;
+        void *rData;
 		void *lVal;
 		void *rVal;
 		bool sameRecord;
@@ -857,16 +861,22 @@ class INLJoin : public Iterator {
         };
 
         RC getNextTuple(void *data){
+            
             int offset = 0;
             int leftLen = 0;
             int rightLen = 0;
-            if (sameRecord) {
+            /*if (sameRecord) {
                 goto outerRecord;
-            }
-            while (leftIn->getNextTuple(data) != QE_EOF) {
-                offset = ceil((double)leftAttrs.size()/CHAR_BIT);;
+            }*/
+            lData=malloc(PAGE_SIZE);
+            while (leftIn->getNextTuple(lData) != QE_EOF) {
+                int lNullIndicatorSize = ceil((double)leftAttrs.size()/CHAR_BIT);
+                char lNullIndicator;
+                memcpy(&lNullIndicator,(char *)lData + offset,lNullIndicatorSize);
+                offset+=lNullIndicatorSize;
+                
                 sameRecord = true;
-                switch (condition.op) {
+                /*switch (condition.op) {
                     case EQ_OP:
                         rightIn->setIterator(lVal, lVal, true, true); break;
                     case LT_OP: // lVal < rVal
@@ -881,20 +891,19 @@ class INLJoin : public Iterator {
                         rightIn->setIterator(NULL, NULL, true, true); break;
                     case NO_OP:
                     		rightIn->setIterator(NULL, NULL, true, true); break;
-                }
-
+                }*/
                 for (int i=0; i<leftAttrs.size(); ++i) {
                     if (leftAttrs[i].name.compare(condition.lhsAttr) == 0) {
                         if (leftAttrs[i].type != TypeVarChar) {
                             lVal = malloc(sizeof(int));
                             memset(lVal, 0, sizeof(int));
-                            memcpy(lVal, (char *)data + offset, sizeof(int));
+                            memcpy(lVal, (char *)lData + offset, sizeof(int));
                         }
                         else {
-                            memcpy(&leftLen, (char *)data + offset, sizeof(int));
+                            memcpy(&leftLen, (char *)lData + offset, sizeof(int));
                             lVal = malloc(leftLen+1);
                             memset(lVal, 0, leftLen+1);
-                            memcpy(lVal, (char *)data + offset + sizeof(int), leftLen);
+                            memcpy(lVal, (char *)lData + offset + sizeof(int), leftLen);
                         }
                         break;
                     }
@@ -903,27 +912,31 @@ class INLJoin : public Iterator {
                     }
                     else {
                         int len = 0;
-                        memcpy(&len, (char *)data + offset, sizeof(int));
+                        memcpy(&len, (char *)lData + offset, sizeof(int));
                         offset += len + 4;
                     }
                 }
 
-            outerRecord:
-                while (rightIn->getNextTuple(buffer) != QE_EOF) {
-                    offset = ceil((double)rightAttrs.size()/CHAR_BIT);
+            //outerRecord:
+                rData=malloc(PAGE_SIZE);
+                while (rightIn->getNextTuple(rData) != QE_EOF) {
+                    int rNullIndicatorSize = ceil((double)rightAttrs.size()/CHAR_BIT);
+                    char rNullIndicator;
+                    memcpy(&rNullIndicator,(char *)rData + offset,rNullIndicatorSize);
+                    offset=rNullIndicatorSize;
                     int i;
                     for (i=0; i<rightAttrs.size(); ++i) {
                         if (rightAttrs[i].name.compare(condition.rhsAttr) == 0) {
                             if (rightAttrs[i].type != TypeVarChar) {
                                 rVal = malloc(sizeof(int));
                                 memset(rVal, 0, sizeof(int));
-                                memcpy(rVal, (char *)buffer + offset, sizeof(int));
+                                memcpy(rVal, (char *)rData + offset, sizeof(int));
                             }
                             else {
-                                memcpy(&rightLen, (char *)buffer + offset, sizeof(int));
+                                memcpy(&rightLen, (char *)rData + offset, sizeof(int));
                                 rVal = malloc(rightLen+1);
                                 memset(rVal, 0, rightLen+1);
-                                memcpy(rVal, (char *)buffer + offset + sizeof(int), rightLen);
+                                memcpy(rVal, (char *)rData + offset + sizeof(int), rightLen);
                             }
                             break;
                         }
@@ -932,7 +945,7 @@ class INLJoin : public Iterator {
                         }
                         else {
                             int len = 0;
-                            memcpy(&len, (char *)buffer + offset, sizeof(int));
+                            memcpy(&len, (char *)rData + offset, sizeof(int));
                             offset += len + 4;
                         }
                     }
@@ -940,12 +953,16 @@ class INLJoin : public Iterator {
                     int lOffset = 0;
                     int rOffset = 0;
                     // debug info
-                    cout << "INLJoin compare info" << endl;
-
+                    cout << "INLJoin compare info " << endl;
+                    
                     if(rightAttrs[i].type != TypeVarChar){
+                        cout<<"lVal: "<<*(float*)lVal<<" rVal: "<<*(float*)rVal<<endl;
                     		if(RBFM_ScanIterator::compareNum(lVal, condition.op, rVal, rightAttrs[i].type)){
                     			// debug
-                    			cout << "lVal: " << *(float*)lVal << endl;
+                                JoinUtil::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
+                                delete[] lData;
+                                delete[] rData;
+                    			/*cout << "lVal: " << *(float*)lVal << endl;
                     			cout << "rVal: " << *(float*)rVal << endl;
                     			for(i=0; i<leftAttrs.size(); i++){
                     				lOffset += sizeof(int);
@@ -954,14 +971,19 @@ class INLJoin : public Iterator {
                     				memcpy((char*)data+lOffset, (char*)buffer+rOffset, sizeof(int));
                     				lOffset += sizeof(int);
                     				rOffset += sizeof(int);
-                    			}
+                    			}*/
+                                return 0;
                     		}
-                    		return 0;
+                    		//return 0;
                     }
                     else{
                     		if(RBFM_ScanIterator::compareVarChar(leftLen, lVal, condition.op, rightLen, rVal)){
                     			// debug
-                    			cout << "lVal: " << *(float*)lVal << endl;
+                                JoinUtil::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
+                                delete[] lData;
+                                delete[] rData;
+
+                    			/*cout << "lVal: " << *(float*)lVal << endl;
                     			cout << "rVal: " << *(float*)rVal << endl;
                     			for(i=0; i<leftAttrs.size(); i++){
                     				int varCharLen = 0;
@@ -974,9 +996,10 @@ class INLJoin : public Iterator {
                     				memcpy((char*)data+lOffset, (char*)buffer + rOffset, varCharLen+sizeof(int));
                     				lOffset += varCharLen + sizeof(int);
                     				rOffset += varCharLen + sizeof(int);
-                    			}
+                    			}*/
+                                return 0;
                     		}
-                    		return 0;
+                    		//return 0;
                     }
                 }
             }

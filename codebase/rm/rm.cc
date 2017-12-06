@@ -793,6 +793,7 @@ RC RelationManager::indexScan(const string &tableName,
                               RM_IndexScanIterator &rm_IndexScanIterator)
 {
     string idxName(tableName+"_"+attributeName+"_ix");
+    //cout<<"idxname: "<<idxName<<" attributeName: "<<attributeName<<endl;
     IXFileHandle ixfileHandle;
     if(ix_manager->openFile(idxName,ixfileHandle)!=0){
         return -1;
@@ -835,7 +836,7 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
             //cout<<"Found attr: "<<attr.name<<endl;
         }
     }
-    /*RM_ScanIterator rmsi;
+    RM_ScanIterator rmsi;
     vector<string> attributeNames;
     attributeNames.push_back(attributeName);
     if(scan(tableName,"", NO_OP, NULL, attributeNames, rmsi)!=0){
@@ -858,7 +859,7 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
         ix_manager->insertEntry(ixfileHandle, attr, returnedData, rid);
     }
     
-    free(returnedData);*/
+    free(returnedData);
     
     updateCatalog(tableName,attributeName,1);
     return 0;
