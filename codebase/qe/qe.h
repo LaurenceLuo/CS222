@@ -701,7 +701,6 @@ class Filter : public Iterator {
                                     char* rightVal=new char[rightLen];
                                     memcpy(rightVal,(char *)condition.rhsValue.data+sizeof(int), rightLen);
         							if(RBFM_ScanIterator::compareVarChar(leftLen, value, condition.op, rightLen, rightVal)){
-
         								return 0;
         							}
         						}
@@ -844,7 +843,7 @@ class INLJoin : public Iterator {
 		void *buffer;
 		void *lVal;
 		void *rVal;
-		bool sameRecord;
+		bool rightScan;
 
         INLJoin(Iterator *leftIn,           // Iterator of input R
                IndexScan *rightIn,          // IndexScan Iterator of input S
@@ -860,12 +859,12 @@ class INLJoin : public Iterator {
             int offset = 0;
             int leftLen = 0;
             int rightLen = 0;
-            if (sameRecord) {
-                goto outerRecord;
+            if (rightScan) {
+                goto rightRecord;
             }
             while (leftIn->getNextTuple(data) != QE_EOF) {
                 offset = ceil((double)leftAttrs.size()/CHAR_BIT);;
-                sameRecord = true;
+                //sameRecord = true;
                 switch (condition.op) {
                     case EQ_OP:
                         rightIn->setIterator(lVal, lVal, true, true); break;
@@ -885,10 +884,12 @@ class INLJoin : public Iterator {
 
                 for (int i=0; i<leftAttrs.size(); ++i) {
                     if (leftAttrs[i].name.compare(condition.lhsAttr) == 0) {
+                    		rightScan = true;
                         if (leftAttrs[i].type != TypeVarChar) {
                             lVal = malloc(sizeof(int));
                             memset(lVal, 0, sizeof(int));
                             memcpy(lVal, (char *)data + offset, sizeof(int));
+                            cout << "lVal: " << *(float*)lVal << endl;
                         }
                         else {
                             memcpy(&leftLen, (char *)data + offset, sizeof(int));
@@ -908,16 +909,18 @@ class INLJoin : public Iterator {
                     }
                 }
 
-            outerRecord:
+            rightRecord:
                 while (rightIn->getNextTuple(buffer) != QE_EOF) {
                     offset = ceil((double)rightAttrs.size()/CHAR_BIT);
                     int i;
                     for (i=0; i<rightAttrs.size(); ++i) {
+                    		cout << "test" << endl;
                         if (rightAttrs[i].name.compare(condition.rhsAttr) == 0) {
                             if (rightAttrs[i].type != TypeVarChar) {
                                 rVal = malloc(sizeof(int));
                                 memset(rVal, 0, sizeof(int));
                                 memcpy(rVal, (char *)buffer + offset, sizeof(int));
+                                cout << "rVal: " << *(float*)rVal << endl;
                             }
                             else {
                                 memcpy(&rightLen, (char *)buffer + offset, sizeof(int));
@@ -937,14 +940,13 @@ class INLJoin : public Iterator {
                         }
                     }
                     // compare right value with left value, if true, combine them into data
-                    int lOffset = 0;
-                    int rOffset = 0;
-                    // debug info
-                    cout << "INLJoin compare info" << endl;
+                    int lOffset = ceil((double)leftAttrs.size()/CHAR_BIT);;
+                    int rOffset = ceil((double)rightAttrs.size()/CHAR_BIT);;
 
                     if(rightAttrs[i].type != TypeVarChar){
                     		if(RBFM_ScanIterator::compareNum(lVal, condition.op, rVal, rightAttrs[i].type)){
-                    			// debug
+                    			// debug info
+                    			cout << "INLJoin compare info" << endl;
                     			cout << "lVal: " << *(float*)lVal << endl;
                     			cout << "rVal: " << *(float*)rVal << endl;
                     			for(i=0; i<leftAttrs.size(); i++){
@@ -955,14 +957,15 @@ class INLJoin : public Iterator {
                     				lOffset += sizeof(int);
                     				rOffset += sizeof(int);
                     			}
+                    			return 0;
                     		}
-                    		return 0;
                     }
                     else{
                     		if(RBFM_ScanIterator::compareVarChar(leftLen, lVal, condition.op, rightLen, rVal)){
-                    			// debug
-                    			cout << "lVal: " << *(float*)lVal << endl;
-                    			cout << "rVal: " << *(float*)rVal << endl;
+                    			// debug info
+                    			cout << "INLJoin compare info" << endl;
+                    			cout << "lVal: " << (char*)lVal << endl;
+                    			cout << "rVal: " << (char*)rVal << endl;
                     			for(i=0; i<leftAttrs.size(); i++){
                     				int varCharLen = 0;
                     				memcpy(&varCharLen, (char*)data + lOffset, sizeof(int));
@@ -975,8 +978,8 @@ class INLJoin : public Iterator {
                     				lOffset += varCharLen + sizeof(int);
                     				rOffset += varCharLen + sizeof(int);
                     			}
+                    			return 0;
                     		}
-                    		return 0;
                     }
                 }
             }
