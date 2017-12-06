@@ -31,13 +31,13 @@ BNLJoin::BNLJoin(Iterator *leftIn,            // Iterator of input R
     this->left=leftIn;
     this->right=new TableScan(rightIn->rm,rightIn->tableName);
     this->condition=condition;
-    
+
     bufferSize= numPages*PAGE_SIZE;
     blockData=malloc(bufferSize);
-    
+
     leftIn->getAttributes(leftAttrs);
     rightIn->getAttributes(rightAttrs);
-    
+
     for(lCondAttrIndex=0; lCondAttrIndex < this->leftAttrs.size(); lCondAttrIndex++) {
         if (strcmp(this->condition.lhsAttr.c_str(), this->leftAttrs[lCondAttrIndex].name.c_str()) == 0){
             break;
@@ -63,7 +63,7 @@ BNLJoin::BNLJoin(Iterator *leftIn,            // Iterator of input R
             attrType = leftAttrs[lCondAttrIndex].type;
         }*/
     }
-    
+
     this->maxRecrodLength = ceil(this->leftAttrs.size()/8.0);
     for(int i=0;i<this->leftAttrs.size();i++){
         switch(this->leftAttrs[i].type){
@@ -80,7 +80,7 @@ BNLJoin::BNLJoin(Iterator *leftIn,            // Iterator of input R
 
         }
     }
-    
+
     //currentBlockMapperIndex = 0;
     currentProperVectorIndex = 0;
     loadBlock();
@@ -93,17 +93,17 @@ BNLJoin::~BNLJoin() {
 }
 
 RC BNLJoin::getNextTuple(void *data) {
-    
+
     if(this->blockMapper.size() ==0)
         return -1;
     else{
         map<Key, vector<Pair> >::iterator it = blockMapper.begin();
-        
+
         Key currentKey = it->first;
         Pair currentPair = (it->second)[currentProperVectorIndex];
-        
+
         char* rightData = new char[PAGE_SIZE];
-        
+
         while(right->getNextTuple(rightData)==0){
             char* rightAttrValue = new char[PAGE_SIZE];
             if(this->rCondAttrIndex != -1){
@@ -146,11 +146,11 @@ RC BNLJoin::getNextTuple(void *data) {
             delete[] rightAttrValue;
         }
         delete[] rightData;
-        
+
         TableScan* right= new TableScan(this->right->rm, this->right->tableName);
         delete this->right;
         this->right = right;
-        
+
         if(currentProperVectorIndex<it->second.size()-1){
             currentProperVectorIndex++;
             return getNextTuple(data);
@@ -163,7 +163,7 @@ RC BNLJoin::getNextTuple(void *data) {
             return getNextTuple(data);
         }
     }
-    
+
 }
 
 RC BNLJoin::loadBlock() {
@@ -172,14 +172,14 @@ RC BNLJoin::loadBlock() {
     if(!blockMapper.empty())
         blockMapper.clear();
     blockData = malloc(bufferSize);
-    
+
     void* data = malloc(PAGE_SIZE);
     int offset = 0;
-    
+
     while ((bufferSize-maxRecrodLength)>offset && left->getNextTuple(data)==0) {
         RecordBasedFileManager *rbf_manager=RecordBasedFileManager::instance();
         int recordLength = rbf_manager->getRecordSize(this->leftAttrs,data);
-        
+
         memcpy((char*)blockData+offset, data, recordLength);
         void* page = malloc(PAGE_SIZE);
         JoinUtil::getValueAt(data, this->leftAttrs, this->lCondAttrIndex, page);
@@ -187,7 +187,7 @@ RC BNLJoin::loadBlock() {
         vector<Pair> container = blockMapper[*key];
         Pair pair(offset,recordLength);
         offset += recordLength;
-        
+
         if (!container.empty()) {
             container.push_back(pair);
         } else {
@@ -195,7 +195,7 @@ RC BNLJoin::loadBlock() {
             pairs.push_back(pair);
             blockMapper[*key] = pairs;
         }
-        
+
         delete key;
         free(page);
     }
@@ -207,7 +207,23 @@ RC BNLJoin::loadBlock() {
 void BNLJoin::getAttributes(vector<Attribute> &attrs) const {
     for(int i=0; i< this->leftAttrs.size(); i++)
         attrs.push_back(this->leftAttrs[i]);
-    
+
     for(int i=0; i< this->rightAttrs.size(); i++)
         attrs.push_back(this->rightAttrs[i]);
+}
+
+INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &condition){
+	this->leftIn = leftIn;
+	this->rightIn = rightIn;
+	this->condition = condition;
+	leftIn->getAttributes(leftAttrs);
+	rightIn->getAttributes(rightAttrs);
+	int size = 0;
+	for(int i=0; i<rightAttrs.size(); i++){
+		size += rightAttrs[i].length;
+	}
+	this->buffer = malloc(size);
+	this->sameRecord = false;
+	this->lVal = malloc(sizeof(int));
+	this->rVal = malloc(sizeof(int));
 }

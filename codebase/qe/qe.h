@@ -32,13 +32,13 @@ public:
         this->pos = pos;
         this->length = length;
     }
-    
+
     Pair& operator=(const Pair &p) {
         this->pos = p.pos;
         this->length = p.length;
         return *this;
     }
-    
+
     bool operator==(const Pair &p) const {
         return this->pos == p.pos && this->length == p.length;
     }
@@ -48,7 +48,7 @@ class Key {
 public:
     AttrType type;
     void* data;
-    
+
     Key(AttrType type, void* data) {
         this->type = type;
         switch(type){
@@ -68,7 +68,7 @@ public:
                 break;
         }
     }
-    
+
     Key(const Key &p) {
         this->type = p.type;
         switch(type){
@@ -88,11 +88,11 @@ public:
                 break;
         }
     }
-    
+
     ~Key() {
         free(data);
     }
-    
+
     Key& operator=(const Key &p) {
         this->type = p.type;
         switch(type){
@@ -111,7 +111,7 @@ public:
         }
         return *this;
     }
-    
+
     bool operator==(const Key &p) const {
         switch(type){
             case TypeInt:
@@ -128,7 +128,7 @@ public:
                 return strcmp(leftValue.c_str(), rightValue.c_str()) == 0;
         }
     }
-    
+
     bool operator>(const Key &p) const {
         switch(type){
             case TypeInt:
@@ -145,7 +145,7 @@ public:
                 return strcmp(leftValue.c_str(), rightValue.c_str()) > 0;
         }
     }
-    
+
     bool operator>=(const Key &p) const {
         switch(type){
             case TypeInt:
@@ -162,7 +162,7 @@ public:
                 return strcmp(leftValue.c_str(), rightValue.c_str()) >= 0;
         }
     }
-    
+
     bool operator<(const Key &p) const {
         switch(type){
             case TypeInt:
@@ -179,7 +179,7 @@ public:
                 return strcmp(leftValue.c_str(), rightValue.c_str()) < 0;
         }
     }
-    
+
     bool operator<=(const Key &p) const {
         switch(type){
             case TypeInt:
@@ -202,9 +202,9 @@ class JoinUtil{
 public:
     static void getValueAt(void *data, vector<Attribute>& attrs, int index,
                            void* value) {
-        
+
         int NullIndicatorSize = (double)ceil(attrs.size() / 8.0);
-        
+
         //char nullIndicatorValue = 1 << (7 - (index % 8));
         //cout<<"size of nullIndicatorValue: "<<NullIndicatorSize<<endl;
         //char nullIndicatorFromData;
@@ -218,14 +218,14 @@ public:
         int nullIndicatorOffset = 0;
         int short standardNullIndicator = 0x80;
         char nullIndicator = 0;
-        
+
         for (int i = 0; i < index; i++) {
             if (i % 8 == 0) {
                 memcpy(&nullIndicator, (char*) data + nullIndicatorOffset, NullIndicatorSize);
                 nullIndicatorOffset++;
                 standardNullIndicator = 0x80;
             }
-            
+
             if ((nullIndicator & standardNullIndicator) == 0) {
                 switch(attrs[i].type){
                     case TypeInt:
@@ -242,7 +242,7 @@ public:
                         break;
                 }
             }
-            
+
             standardNullIndicator = standardNullIndicator >> 1;
         }
         switch(attrs[index].type){
@@ -257,10 +257,10 @@ public:
                 memcpy(&varLength,(char*) data + offset,sizeof(int));
                 memcpy(value, (char*) data + offset, sizeof(int) + varLength);
                 break;
-                
+
         }
     };
-    
+
     static int findAttributePos(vector<Attribute> &attrs, const string name){
         for(int i = 0;i<attrs.size();i++){
             if(strcmp(attrs[i].name.c_str(),name.c_str())==0)
@@ -268,29 +268,29 @@ public:
         }
         return -1;
     };
-    
+
     static void combineData(char* leftData, vector<Attribute> &leftAttrs, char* rightData, vector<Attribute> &rightAttrs, char* combinedRes){
         int totalSize = leftAttrs.size() + rightAttrs.size();
         int offset = (double)ceil(totalSize/8.0);
-        
+
         int short standardNullIndicator = 0x80;
         int short nullIndicator = 0;
         int short nullIndicatorOffset = 0;
-        
+
         int leftOffset = ceil(leftAttrs.size()/8.0);
         int rightOffset = ceil(rightAttrs.size()/8.0);
-        
+
         int short resNullIndicator = 0;
         int resNullIndicatorOffset = 0;
-        
-        
+
+
         memcpy(&nullIndicator,leftData,sizeof(char));
         nullIndicatorOffset++;
         for(int i=0;i<leftAttrs.size();i++){
             if(i!=0&&i%8==0){
                 memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
                 resNullIndicatorOffset++;
-                
+
                 memcpy(&nullIndicator,leftData + nullIndicatorOffset,sizeof(char));
                 standardNullIndicator = 0x80;
                 nullIndicatorOffset++;
@@ -315,18 +315,18 @@ public:
             }
             standardNullIndicator = standardNullIndicator>>1;
         }
-        
+
         if(standardNullIndicator == 0){
             memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
             resNullIndicatorOffset++;
             resNullIndicator = 0;
             standardNullIndicator = 0x80;
         }
-        
+
         int short rightStandardNullIndicator = 0x80;
         nullIndicatorOffset = 0;
         nullIndicator = 0;
-        
+
         for(int i=0;i<rightAttrs.size();i++){
             if(i%8==0){
                 memcpy(&nullIndicator,rightData + nullIndicatorOffset,sizeof(char));
@@ -347,12 +347,12 @@ public:
                         rightOffset += varLength;
                         rightOffset += sizeof(int);
                         break;
-                        
+
                 }
             }else{
                 resNullIndicator |= standardNullIndicator;
             }
-            
+
             standardNullIndicator = standardNullIndicator >>1;
             rightStandardNullIndicator = rightStandardNullIndicator >>1;
             if(standardNullIndicator == 0){
@@ -363,11 +363,11 @@ public:
             }
         }
         memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
-        
+
         int leftNullSize = ceil(leftAttrs.size()/8.0);
         int leftDataLength = leftOffset-leftNullSize;
         memcpy(combinedRes+offset,leftData+leftNullSize,leftDataLength);
-        
+
         int rightNullSize = ceil(rightAttrs.size()/8.0);
         int rightDataLength = rightOffset - rightNullSize;
         memcpy(combinedRes+offset+leftDataLength,rightData+rightNullSize,rightDataLength);
@@ -701,7 +701,7 @@ class Filter : public Iterator {
                                     char* rightVal=new char[rightLen];
                                     memcpy(rightVal,(char *)condition.rhsValue.data+sizeof(int), rightLen);
         							if(RBFM_ScanIterator::compareVarChar(leftLen, value, condition.op, rightLen, rightVal)){
-                                        
+
         								return 0;
         							}
         						}
@@ -797,26 +797,26 @@ class BNLJoin : public Iterator {
     public:
     Iterator *left;
     TableScan *right;
-    
+
     vector<Attribute> leftAttrs;
     vector<Attribute> rightAttrs;
-    
+
     Condition condition;
     AttrType attrType;
-    
+
     int lCondAttrIndex;
     int rCondAttrIndex;
-    
+
     int bufferSize;
-    
+
     void* blockData;
     map<Key, vector<Pair> > blockMapper;
-    
+
     int maxRecrodLength;
-    
+
     //int currentBlockMapperIndex;
     int currentProperVectorIndex;
-    
+
     BNLJoin(Iterator *leftIn,            // Iterator of input R
                TableScan *rightIn,           // TableScan Iterator of input S
                const Condition &condition,   // Join condition
@@ -828,7 +828,7 @@ class BNLJoin : public Iterator {
     RC getNextTuple(void *data);
     // For attribute in vector<Attribute>, name it as rel.attr
     void getAttributes(vector<Attribute> &attrs) const;
-    
+
     RC loadBlock();
 };
 
@@ -836,15 +836,159 @@ class BNLJoin : public Iterator {
 class INLJoin : public Iterator {
     // Index nested-loop join operator
     public:
+		Iterator *leftIn;
+		IndexScan *rightIn;
+		Condition condition;
+		vector<Attribute> leftAttrs;
+		vector<Attribute> rightAttrs;
+		void *buffer;
+		void *lVal;
+		void *rVal;
+		bool sameRecord;
+
         INLJoin(Iterator *leftIn,           // Iterator of input R
                IndexScan *rightIn,          // IndexScan Iterator of input S
                const Condition &condition   // Join condition
-        ){};
-        ~INLJoin(){};
+        );
+        ~INLJoin(){
+        		free(buffer);
+        		free(lVal);
+        		free(rVal);
+        };
 
-        RC getNextTuple(void *data){return QE_EOF;};
+        RC getNextTuple(void *data){
+            int offset = 0;
+            int leftLen = 0;
+            int rightLen = 0;
+            if (sameRecord) {
+                goto outerRecord;
+            }
+            while (leftIn->getNextTuple(data) != QE_EOF) {
+                offset = ceil((double)leftAttrs.size()/CHAR_BIT);;
+                sameRecord = true;
+                switch (condition.op) {
+                    case EQ_OP:
+                        rightIn->setIterator(lVal, lVal, true, true); break;
+                    case LT_OP: // lVal < rVal
+                        rightIn->setIterator(lVal, NULL, false, true); break;
+                    case GT_OP: // lVal > rVal
+                        rightIn->setIterator(NULL, lVal, true, false); break;
+                    case LE_OP:
+                        rightIn->setIterator(lVal, NULL, true, true); break;
+                    case GE_OP:
+                        rightIn->setIterator(NULL, lVal, true, true); break;
+                    case NE_OP:
+                        rightIn->setIterator(NULL, NULL, true, true); break;
+                    case NO_OP:
+                    		rightIn->setIterator(NULL, NULL, true, true); break;
+                }
+
+                for (int i=0; i<leftAttrs.size(); ++i) {
+                    if (leftAttrs[i].name.compare(condition.lhsAttr) == 0) {
+                        if (leftAttrs[i].type != TypeVarChar) {
+                            lVal = malloc(sizeof(int));
+                            memset(lVal, 0, sizeof(int));
+                            memcpy(lVal, (char *)data + offset, sizeof(int));
+                        }
+                        else {
+                            memcpy(&leftLen, (char *)data + offset, sizeof(int));
+                            lVal = malloc(leftLen+1);
+                            memset(lVal, 0, leftLen+1);
+                            memcpy(lVal, (char *)data + offset + sizeof(int), leftLen);
+                        }
+                        break;
+                    }
+                    if (leftAttrs[i].type != TypeVarChar) {
+                        offset += 4;
+                    }
+                    else {
+                        int len = 0;
+                        memcpy(&len, (char *)data + offset, sizeof(int));
+                        offset += len + 4;
+                    }
+                }
+
+            outerRecord:
+                while (rightIn->getNextTuple(buffer) != QE_EOF) {
+                    offset = ceil((double)rightAttrs.size()/CHAR_BIT);
+                    int i;
+                    for (i=0; i<rightAttrs.size(); ++i) {
+                        if (rightAttrs[i].name.compare(condition.rhsAttr) == 0) {
+                            if (rightAttrs[i].type != TypeVarChar) {
+                                rVal = malloc(sizeof(int));
+                                memset(rVal, 0, sizeof(int));
+                                memcpy(rVal, (char *)buffer + offset, sizeof(int));
+                            }
+                            else {
+                                memcpy(&rightLen, (char *)buffer + offset, sizeof(int));
+                                rVal = malloc(rightLen+1);
+                                memset(rVal, 0, rightLen+1);
+                                memcpy(rVal, (char *)buffer + offset + sizeof(int), rightLen);
+                            }
+                            break;
+                        }
+                        if (rightAttrs[i].type != TypeVarChar) {
+                            offset += 4;
+                        }
+                        else {
+                            int len = 0;
+                            memcpy(&len, (char *)buffer + offset, sizeof(int));
+                            offset += len + 4;
+                        }
+                    }
+                    // compare right value with left value, if true, combine them into data
+                    int lOffset = 0;
+                    int rOffset = 0;
+                    // debug info
+                    cout << "INLJoin compare info" << endl;
+
+                    if(rightAttrs[i].type != TypeVarChar){
+                    		if(RBFM_ScanIterator::compareNum(lVal, condition.op, rVal, rightAttrs[i].type)){
+                    			// debug
+                    			cout << "lVal: " << *(float*)lVal << endl;
+                    			cout << "rVal: " << *(float*)rVal << endl;
+                    			for(i=0; i<leftAttrs.size(); i++){
+                    				lOffset += sizeof(int);
+                    			}
+                    			for(i=0; i<rightAttrs.size(); i++){
+                    				memcpy(data+lOffset, (char*)buffer+rOffset, sizeof(int));
+                    				lOffset += sizeof(int);
+                    				rOffset += sizeof(int);
+                    			}
+                    		}
+                    		return 0;
+                    }
+                    else{
+                    		if(RBFM_ScanIterator::compareVarChar(leftLen, lVal, condition.op, rightLen, rVal)){
+                    			// debug
+                    			cout << "lVal: " << *(float*)lVal << endl;
+                    			cout << "rVal: " << *(float*)rVal << endl;
+                    			for(i=0; i<leftAttrs.size(); i++){
+                    				int varCharLen = 0;
+                    				memcpy(&varCharLen, (char*)data + lOffset, sizeof(int));
+                    				lOffset += varCharLen + sizeof(int);
+                    			}
+                    			for(i=0; i<rightAttrs.size(); i++){
+                    				int varCharLen = 0;
+                    				memcpy(&varCharLen, (char*)buffer + rOffset, sizeof(int));
+                    				memcpy(data+lOffset, (char*)buffer + rOffset, varCharLen+sizeof(int));
+                    				lOffset += varCharLen + sizeof(int);
+                    				rOffset += varCharLen + sizeof(int);
+                    			}
+                    		}
+                    		return 0;
+                    }
+                }
+            }
+            return QE_EOF;
+        };
         // For attribute in vector<Attribute>, name it as rel.attr
-        void getAttributes(vector<Attribute> &attrs) const{};
+        void getAttributes(vector<Attribute> &attrs) const{
+            for(int i=0; i< this->leftAttrs.size(); i++)
+                attrs.push_back(this->leftAttrs[i]);
+            for(int i=0; i< this->rightAttrs.size(); i++)
+                attrs.push_back(this->rightAttrs[i]);
+        };
 };
 
 // Optional for everyone. 10 extra-credit points
