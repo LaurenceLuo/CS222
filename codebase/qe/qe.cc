@@ -223,7 +223,7 @@ INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &conditio
 		size += rightAttrs[i].length;
 	}
 	this->buffer = malloc(size);
-	this->rightScan = false;
+	this->sameRecord = false;
 	this->lVal = malloc(sizeof(int));
 	this->rVal = malloc(sizeof(int));
 }
