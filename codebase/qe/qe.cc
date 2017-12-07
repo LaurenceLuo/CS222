@@ -218,13 +218,28 @@ INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &conditio
 	this->condition = condition;
 	leftIn->getAttributes(leftAttrs);
 	rightIn->getAttributes(rightAttrs);
-	int size = 0;
-	for(int i=0; i<rightAttrs.size(); i++){
-		size += rightAttrs[i].length;
-	}
-	this->buffer = malloc(size);
-	this->sameRecord = false;
 	this->lVal = malloc(sizeof(int));
 	this->rVal = malloc(sizeof(int));
+<<<<<<< HEAD
     currentPos=0;
+=======
+	this->lData = malloc(PAGE_SIZE);
+	this->rData = malloc(PAGE_SIZE);
+}
+
+Aggregate::Aggregate(Iterator *input,                              // Iterator of input R
+                     Attribute aggAttr,                            // The attribute over which we are computing an aggregate
+                     AggregateOp op                                // Aggregate operation
+) {
+    this->input = input;
+    this->aggAttr = aggAttr;
+    this->op = op;
+    input->getAttributes(attrs);
+    int aggAttrIndex = 0;
+    for (int i=0; i< attrs.size(); i++){
+        if (attrs[i].name.compare(aggAttr.name) == 0) break;
+        aggAttrIndex += 1;
+    }
+    aggData.init(attrs[aggAttrIndex].type, op);
+>>>>>>> c7b7baea652c8cd4b99e8a2247a57b26e116d6a5
 }
