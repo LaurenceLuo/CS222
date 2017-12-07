@@ -82,7 +82,7 @@ BNLJoin::BNLJoin(Iterator *leftIn,            // Iterator of input R
     }
 
     //currentBlockMapperIndex = 0;
-    currentProperVectorIndex = 0;
+    currentIndex = 0;
     loadBlock();
 }
 
@@ -100,7 +100,7 @@ RC BNLJoin::getNextTuple(void *data) {
         map<Key, vector<Pair> >::iterator it = blockMapper.begin();
 
         Key currentKey = it->first;
-        Pair currentPair = (it->second)[currentProperVectorIndex];
+        Pair currentPair = (it->second)[currentIndex];
 
         char* rightData = new char[PAGE_SIZE];
 
@@ -151,14 +151,14 @@ RC BNLJoin::getNextTuple(void *data) {
         delete this->right;
         this->right = right;
 
-        if(currentProperVectorIndex<it->second.size()-1){
-            currentProperVectorIndex++;
+        if(currentIndex<it->second.size()-1){
+            currentIndex++;
             return getNextTuple(data);
         }else{
             this->blockMapper.erase(it->first);
             if(this->blockMapper.size() ==0){
                 this->loadBlock();
-                currentProperVectorIndex=0;
+                currentIndex=0;
             }
             return getNextTuple(data);
         }
@@ -200,7 +200,7 @@ RC BNLJoin::loadBlock() {
         free(page);
     }
     //currentBlockMapperIndex = 0;
-    currentProperVectorIndex = 0;
+    currentIndex = 0;
     return 0;
 }
 
@@ -226,4 +226,5 @@ INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &conditio
 	this->sameRecord = false;
 	this->lVal = malloc(sizeof(int));
 	this->rVal = malloc(sizeof(int));
+    currentPos=0;
 }

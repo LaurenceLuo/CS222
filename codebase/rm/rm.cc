@@ -161,7 +161,7 @@ RC RelationManager::insertTableTuple(FileHandle &fileHandle, const string &table
 	//cout << "insertTableTuple getNumberOfPages: " << fileHandle.getNumberOfPages() << endl;
 	//cout << "pageNum: " << pageNum << endl;
     if(fileHandle.readPage(pageNum,page)!=0){
-    		cout << "tableName: " << tableName << endl;
+    		//cout << "tableName: " << tableName << endl;
         cout << "readPage from insertTableTuple fail!" << endl << endl;
         return -1;
     }

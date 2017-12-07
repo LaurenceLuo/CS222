@@ -20,7 +20,10 @@ int testCase_10() {
 	RC rc = success;
 	// Create Filter
 	IndexScan *leftIn = new IndexScan(*rm, "left", "B");
-
+    void *dataT = malloc(bufSize);
+    while(leftIn->getNextTuple(dataT)!= QE_EOF){
+        cout<<"here!!"<<endl;
+    }
 	int compVal = 75;
 
 	Condition cond_f;
@@ -34,14 +37,16 @@ int testCase_10() {
 	cond_f.rhsValue = value;
 
 	leftIn->setIterator(NULL, value.data, true, false);
+    void *dataTmp = malloc(bufSize);
+    while(leftIn->getNextTuple(dataTmp)!= QE_EOF){
+        cout<<"here~~"<<endl;
+    }
 	Filter *filter = new Filter(leftIn, cond_f); //left.B: 10~74, left.C: 50.0~114.0
-
 	// Create Project
 	vector<string> attrNames;
 	attrNames.push_back("left.A");
 	attrNames.push_back("left.C");
 	Project *project = new Project(filter, attrNames);
-
 	Condition cond_j;
 	cond_j.lhsAttr = "left.C";
 	cond_j.op = EQ_OP;
@@ -125,7 +130,7 @@ int testCase_10() {
 	}
 
 	if (expectedResultCnt != actualResultCnt) {
-		cerr << "***** The number of returned tuple is not correct. *****" << endl;
+		cerr << "***** The number of returned tuple is not correct. ***** "<<actualResultCnt << endl;
 		rc = fail;
 	}
 
