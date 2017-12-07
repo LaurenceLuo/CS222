@@ -1077,7 +1077,12 @@ public:
         int nullIndicatorSize = (double)ceil(attrs.size() / 8.0);
         char nullIndicator;
         memcpy(&nullIndicator,(char *)data,nullIndicatorSize);
-        while(input->getNextTuple(buffer) != QE_EOF){
+        RC rc = QE_EOF;
+        rc = input->getNextTuple(buffer);
+        if(rc==QE_EOF){
+        		return rc;
+        }
+        while(rc != QE_EOF){
             int offset = nullIndicatorSize;
             for (int i = 0; i < attrs.size(); i++){
                 if (attrs[i].name.compare(aggAttr.name) == 0) break;
@@ -1089,10 +1094,12 @@ public:
             int value = *(int*)((char*)buffer + offset);
             //cout << "value: " << value << endl;
             aggData.append(op, (float)value, value);
+            aggData.write(op, data, nullIndicator, nullIndicatorSize);
+            rc = input->getNextTuple(buffer);
         }
         //cout << "aggData.realValue: " << aggData.realValue << endl;
-        aggData.write(op, data, nullIndicator, nullIndicatorSize);
-        return 0;
+        //aggData.write(op, data, nullIndicator, nullIndicatorSize);
+        	return 0;
     };
 
     // Please name the output attribute as aggregateOp(aggAttr)
