@@ -844,6 +844,7 @@ class INLJoin : public Iterator {
         void *rData;
 		void *lVal;
 		void *rVal;
+        bool sameRecord;
 
         INLJoin(Iterator *leftIn,           // Iterator of input R
                IndexScan *rightIn,          // IndexScan Iterator of input S
@@ -891,7 +892,7 @@ class INLJoin : public Iterator {
                         offset += len + 4;
                     }
                 }
-
+            outerRecord:
                 rData=malloc(PAGE_SIZE);
                 memset(rData, 0, PAGE_SIZE);
                 while (rightIn->getNextTuple(rData) != QE_EOF) {
@@ -933,6 +934,7 @@ class INLJoin : public Iterator {
                         //cout<<"lVal: "<<*(float*)lVal<<" rVal: "<<*(float*)rVal<<endl;
                     		if(RBFM_ScanIterator::compareNum(lVal, condition.op, rVal, rightAttrs[i].type)){
                     			JoinUtil::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
+                                 sameRecord=true;
                             free(lData);
                             free(rData);
                             return 0;
@@ -941,14 +943,26 @@ class INLJoin : public Iterator {
                     else{
                     		if(RBFM_ScanIterator::compareVarChar(leftLen, lVal, condition.op, rightLen, rVal)){
                             JoinUtil::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
+                                 sameRecord=true;
                             free(lData);
                             free(rData);
                             return 0;
                     		}
                     }
                 }
+                free(rData);
+                IndexScan* innerTmp = new IndexScan(rightIn->rm,rightIn->tableName,rightIn->attrName);
+                //delete this->rightIn;
+                rightIn = innerTmp;
+                
+                memset(rData, 0, PAGE_SIZE);
+                if(sameRecord){
+                    sameRecord=false;
+                    goto outerRecord;
+                }else{
+                    return QE_EOF;
+                }
             }
-            return QE_EOF;
         };
         // For attribute in vector<Attribute>, name it as rel.attr
         void getAttributes(vector<Attribute> &attrs) const{
