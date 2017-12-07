@@ -82,7 +82,7 @@ BNLJoin::BNLJoin(Iterator *leftIn,            // Iterator of input R
     }
 
     //currentBlockMapperIndex = 0;
-    currentIndex = 0;
+    currentProperVectorIndex = 0;
     loadBlock();
 }
 
@@ -100,7 +100,7 @@ RC BNLJoin::getNextTuple(void *data) {
         map<Key, vector<Pair> >::iterator it = blockMapper.begin();
 
         Key currentKey = it->first;
-        Pair currentPair = (it->second)[currentIndex];
+        Pair currentPair = (it->second)[currentProperVectorIndex];
 
         char* rightData = new char[PAGE_SIZE];
 
@@ -151,14 +151,14 @@ RC BNLJoin::getNextTuple(void *data) {
         delete this->right;
         this->right = right;
 
-        if(currentIndex<it->second.size()-1){
-            currentIndex++;
+        if(currentProperVectorIndex<it->second.size()-1){
+            currentProperVectorIndex++;
             return getNextTuple(data);
         }else{
             this->blockMapper.erase(it->first);
             if(this->blockMapper.size() ==0){
                 this->loadBlock();
-                currentIndex=0;
+                currentProperVectorIndex=0;
             }
             return getNextTuple(data);
         }
@@ -200,7 +200,7 @@ RC BNLJoin::loadBlock() {
         free(page);
     }
     //currentBlockMapperIndex = 0;
-    currentIndex = 0;
+    currentProperVectorIndex = 0;
     return 0;
 }
 
@@ -218,13 +218,24 @@ INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &conditio
 	this->condition = condition;
 	leftIn->getAttributes(leftAttrs);
 	rightIn->getAttributes(rightAttrs);
-	int size = 0;
-	for(int i=0; i<rightAttrs.size(); i++){
-		size += rightAttrs[i].length;
-	}
-	this->buffer = malloc(size);
-	this->sameRecord = false;
 	this->lVal = malloc(sizeof(int));
 	this->rVal = malloc(sizeof(int));
-    currentPos=0;
+	this->lData = malloc(PAGE_SIZE);
+	this->rData = malloc(PAGE_SIZE);
+}
+
+Aggregate::Aggregate(Iterator *input,                              // Iterator of input R
+                     Attribute aggAttr,                            // The attribute over which we are computing an aggregate
+                     AggregateOp op                                // Aggregate operation
+) {
+    this->input = input;
+    this->aggAttr = aggAttr;
+    this->op = op;
+    input->getAttributes(attrs);
+    int aggAttrIndex = 0;
+    for (int i=0; i< attrs.size(); i++){
+        if (attrs[i].name.compare(aggAttr.name) == 0) break;
+        aggAttrIndex += 1;
+    }
+    aggData.init(attrs[aggAttrIndex].type, op);
 }
