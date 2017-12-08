@@ -21,9 +21,9 @@ int testCase_10() {
 	// Create Filter
 	IndexScan *leftIn = new IndexScan(*rm, "left", "B");
     void *dataT = malloc(bufSize);
-    while(leftIn->getNextTuple(dataT)!= QE_EOF){
-        cout<<"here!!"<<endl;
-    }
+    /*while(leftIn->getNextTuple(dataT)!= QE_EOF){
+        //cout<<"here!!"<<endl;
+    }*/
 	int compVal = 75;
 
 	Condition cond_f;
@@ -37,10 +37,6 @@ int testCase_10() {
 	cond_f.rhsValue = value;
 
 	leftIn->setIterator(NULL, value.data, true, false);
-    void *dataTmp = malloc(bufSize);
-    while(leftIn->getNextTuple(dataTmp)!= QE_EOF){
-        cout<<"here~~"<<endl;
-    }
 	Filter *filter = new Filter(leftIn, cond_f); //left.B: 10~74, left.C: 50.0~114.0
 	// Create Project
 	vector<string> attrNames;
@@ -57,6 +53,7 @@ int testCase_10() {
 	IndexScan *rightIn = NULL;
 	Iterator *join = NULL;
 	rightIn = new IndexScan(*rm, "right", "C");
+    void *dataTmp = malloc(bufSize);
 	join = new INLJoin(project, rightIn, cond_j);
 
 	int expectedResultCnt = 65; //50.0~114.0

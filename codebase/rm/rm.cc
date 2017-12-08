@@ -621,14 +621,46 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 	}
     
     int indexed=0;
+    int nullIndicatorSize=ceil((double)recordDescriptor.size()/CHAR_BIT);
+    int offset=nullIndicatorSize;
     for(int i=0;i<recordDescriptor.size();i++){
         string ix_Name(tableName+"_"+recordDescriptor[i].name+"_ix");
         IXFileHandle ixfileHandle;
         if(ix_manager->openFile(ix_Name,ixfileHandle)!=0){
-            //cout<<"No index for attribute "<<recordDescriptor[i].name<<endl;
+            switch(recordDescriptor[i].type){
+                case TypeInt:
+                    offset+=sizeof(int);
+                    break;
+                case TypeReal:
+                    offset+=sizeof(float);
+                    break;
+                case TypeVarChar:
+                    int length;
+                    memcpy(&length,data,sizeof(int));
+                    offset+=length+sizeof(int);
+            }
             continue;
         }
-        ix_manager->insertEntry(ixfileHandle, recordDescriptor[i], data, rid);
+        void* indexData;
+        switch(recordDescriptor[i].type){
+            case TypeInt:
+                indexData=malloc(sizeof(int));
+                memcpy(indexData,(char*)data+offset,sizeof(int));
+                offset+=sizeof(int);
+                break;
+            case TypeReal:
+                indexData=malloc(sizeof(float));
+                memcpy(indexData,(char*)data+offset,sizeof(float));
+                offset+=sizeof(float);
+                break;
+            case TypeVarChar:
+                int length;
+                memcpy(&length,data,sizeof(int));
+                indexData=malloc(length+sizeof(int));
+                memcpy(indexData,(char*)data+offset,length+sizeof(int));
+                offset+=length+sizeof(int);
+        }
+        ix_manager->insertEntry(ixfileHandle, recordDescriptor[i], indexData, rid);
         ix_manager->closeFile(ixfileHandle);
         indexed++;
     }
@@ -806,7 +838,7 @@ RC RelationManager::indexScan(const string &tableName,
             attr = attrs[i];
         }
     }
-    return ix_manager->scan(ixfileHandle,attr,lowKey,highKey,lowKeyInclusive,highKeyInclusive,rm_IndexScanIterator.ix_ScanIterator);
+    ix_manager->scan(ixfileHandle,attr,lowKey,highKey,lowKeyInclusive,highKeyInclusive,rm_IndexScanIterator.ix_ScanIterator);
 }
 // Extra credit work
 RC RelationManager::dropAttribute(const string &tableName, const string &attributeName)

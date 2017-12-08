@@ -861,6 +861,7 @@ class INLJoin : public Iterator {
             int rightLen = 0;
             lData=malloc(PAGE_SIZE);
             memset(lData, 0, PAGE_SIZE);
+            cout<<"what's wrong?"<<endl;
             while (leftIn->getNextTuple(lData) != QE_EOF) {
                 int lNullIndicatorSize = ceil((double)leftAttrs.size()/CHAR_BIT);
                 char lNullIndicator;
@@ -873,7 +874,7 @@ class INLJoin : public Iterator {
                             lVal = malloc(sizeof(int));
                             memset(lVal, 0, sizeof(int));
                             memcpy(lVal, (char *)lData + offset, sizeof(int));
-                             cout << "lVal: " << *(float*)lVal << endl;
+                            cout << "lVal: " << *(float*)lVal << endl;
                         }
                         else {
                             memcpy(&leftLen, (char *)lData + offset, sizeof(int));
@@ -907,7 +908,7 @@ class INLJoin : public Iterator {
                                 rVal = malloc(sizeof(int));
                                 memset(rVal, 0, sizeof(int));
                                 memcpy(rVal, (char *)rData + offset, sizeof(int));
-                                cout << "rVal: " << *(float*)rVal << endl;
+                                //cout << "rVal: " << *(float*)rVal << endl;
                             }
                             else {
                                 memcpy(&rightLen, (char *)rData + offset, sizeof(int));
@@ -963,6 +964,7 @@ class INLJoin : public Iterator {
                     return QE_EOF;
                 }
             }
+            return QE_EOF;
         };
         // For attribute in vector<Attribute>, name it as rel.attr
         void getAttributes(vector<Attribute> &attrs) const{

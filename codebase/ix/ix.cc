@@ -300,11 +300,13 @@ RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 
     _currIndex=_temp-(_lastIndex-_currNode.keys.size());
     //cout<<"_currNode.buckets.size(): "<<_currNode.buckets.size()<<" _currIndex: "<<_currIndex<<" "<<" lastIndex: "<<_lastIndex<<endl;
-    //cout<<"_currNodeID: "<<_currNodeID<<" _currIndex: "<<_currIndex<<"_currNode.keys[_currIndex]: "<<*(float*)_currNode.keys[_currIndex]<<" _highKey: "<<*(float*)_highKey<<" compareKey: "<<BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)<<endl;
-
+    //cout<<"_currNodeID: "<<_currNodeID<<" _currIndex: "<<_currIndex;
+    //cout<<"_currNode.keys[_currIndex]: "<<*(int*)_currNode.keys[_currIndex]<<endl;
     if(_highKey!=NULL&&BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>=0){
-        if(!_highKeyInclusive||(BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0))
+        if(!_highKeyInclusive||(BtreeNode::compareKey(_currNode.keys[_currIndex],_highKey,_btree.attrType)>0)){
+            //cout<<"_currNode.keys[_currIndex]: "<<*(int*)_currNode.keys[_currIndex]<<" _highKey: "<<*(int*)_highKey<<endl;
             return IX_EOF;
+        }
     }
 
     rid=_currNode.buckets[_currIndex][0];//only consider the first RID

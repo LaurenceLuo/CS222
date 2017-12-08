@@ -239,3 +239,5 @@ Aggregate::Aggregate(Iterator *input,                              // Iterator o
     }
     aggData.init(attrs[aggAttrIndex].type, op);
 }
+
+Aggregate::Aggregate(Iterator *input, Attribute aggAttr, Attribute gAttr,AggregateOp op){}
