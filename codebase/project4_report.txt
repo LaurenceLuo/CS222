@@ -1,15 +1,18 @@
 1. Basic information
-Team number (e.g., 01) : 
-#1 Student ID : 
-#1 Student Name : 
-#2 Student ID : 
-#2 Student Name : 
-OS (bit) :
-gcc version :
+Team number (e.g., 01) : 16
+#1 Student ID : 94681045
+#1 Student Name : Lintong Luo
+#2 Student ID : 48964286
+#2 Student Name : Tzu-Chi Lin
+OS (bit) : ubuntu16.04.4-6 x86_64
+gcc version : gcc (GCC) 4.8.5 20150623
 
 
 2. Catalog information about Index
 - Show your catalog information about an index (tables, columns). 
+We add a new column to record whether the attribute has index file or not in Table of Columns
+
+Columns(table-id:int, column-name:varchar(50), column-type:int, column-length:int, column-position:int, index:int)
 
 
 3. Block Nested Loop Join (If you have implemented this feature)
@@ -18,20 +21,23 @@ gcc version :
 
 4. Index Nested Loop Join (If you have implemented this feature)
 - Describe how your grace hash join works.
-
+The INLJoin iterator takes two iterators as input, leftIn iterator and rightIn (IndexScan). The "leftIn" iterator works as the outer relation, and the "rightIn" iterator is the inner relation. The returned schema is the attributes of tuples from leftIn concatenated with the attributes of tuples from rightIn.
 
 5. Grace Hash Join (If you have implemented this feature)
 - Describe how your grace hash join works (especially, in-memory structure).
-
+Not implemented.
 
 6. Aggregation
 - Describe how your aggregation (basic, group-based hash) works.
-
+The basic aggregate method takes an input iterator, an aggregated attribute, and an aggregate function (MIN, MAX, SUM, AVG, COUNT) as the arguments. We add a new class AggregateData to store the value about MIN, MAX, SUM, AVG, COUNT. For AVG, the output should be a real value. Otherwise, the output should be an integer value.
+We do not implement group-by feature.
 
 7. Implementation Detail
 - Have you added your own source file (.cc or .h)?
+No, but we implement new Class AggregateData to store the value for aggregate.
 
 - Have you implemented any optional features? Then, describe them here.
+No.
 
 - Other implementation details:
 
