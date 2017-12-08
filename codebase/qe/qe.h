@@ -26,21 +26,21 @@ struct Value {
 
 class Pair {
 public:
-    int pos;
+    int offset;
     int length;
-    Pair(int pos, int length) {
-        this->pos = pos;
+    Pair(int offset, int length) {
+        this->offset = offset;
         this->length = length;
     }
 
     Pair& operator=(const Pair &p) {
-        this->pos = p.pos;
+        this->offset = p.offset;
         this->length = p.length;
         return *this;
     }
 
     bool operator==(const Pair &p) const {
-        return this->pos == p.pos && this->length == p.length;
+        return this->offset == p.offset && this->length == p.length;
     }
 };
 
@@ -198,7 +198,7 @@ public:
     }
 };
 
-class JoinUtil{
+class Join{
 public:
     static void getValueAt(void *data, vector<Attribute>& attrs, int index,
                            void* value) {
@@ -280,16 +280,16 @@ public:
         int leftOffset = ceil(leftAttrs.size()/8.0);
         int rightOffset = ceil(rightAttrs.size()/8.0);
 
-        int short resNullIndicator = 0;
-        int resNullIndicatorOffset = 0;
+        int short rightNullIndicator = 0;
+        int rightNullIndicatorOffset = 0;
 
 
         memcpy(&nullIndicator,leftData,sizeof(char));
         nullIndicatorOffset++;
         for(int i=0;i<leftAttrs.size();i++){
             if(i!=0&&i%8==0){
-                memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
-                resNullIndicatorOffset++;
+                memcpy(combinedRes+rightNullIndicatorOffset, &rightNullIndicator, sizeof(char));
+                rightNullIndicatorOffset++;
 
                 memcpy(&nullIndicator,leftData + nullIndicatorOffset,sizeof(char));
                 standardNullIndicator = 0x80;
@@ -311,15 +311,15 @@ public:
                         break;
                 }
             }else{
-                resNullIndicator |= standardNullIndicator;
+                rightNullIndicator |= standardNullIndicator;
             }
             standardNullIndicator = standardNullIndicator>>1;
         }
 
         if(standardNullIndicator == 0){
-            memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
-            resNullIndicatorOffset++;
-            resNullIndicator = 0;
+            memcpy(combinedRes+rightNullIndicatorOffset, &rightNullIndicator, sizeof(char));
+            rightNullIndicatorOffset++;
+            rightNullIndicator = 0;
             standardNullIndicator = 0x80;
         }
 
@@ -350,19 +350,19 @@ public:
 
                 }
             }else{
-                resNullIndicator |= standardNullIndicator;
+                rightNullIndicator |= standardNullIndicator;
             }
 
             standardNullIndicator = standardNullIndicator >>1;
             rightStandardNullIndicator = rightStandardNullIndicator >>1;
             if(standardNullIndicator == 0){
-                memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
-                resNullIndicatorOffset++;
-                resNullIndicator = 0;
+                memcpy(combinedRes+rightNullIndicatorOffset, &rightNullIndicator, sizeof(char));
+                rightNullIndicatorOffset++;
+                rightNullIndicator = 0;
                 standardNullIndicator = 0x80;
             }
         }
-        memcpy(combinedRes+resNullIndicatorOffset, &resNullIndicator, sizeof(char));
+        memcpy(combinedRes+rightNullIndicatorOffset, &rightNullIndicator, sizeof(char));
 
         int leftNullSize = ceil(leftAttrs.size()/8.0);
         int leftDataLength = leftOffset-leftNullSize;
@@ -671,6 +671,7 @@ class Filter : public Iterator {
         								memset(value, 0, sizeof(int));
         								memcpy(value, (char *)data+offset, sizeof(int));
         								offset += sizeof(int);
+                                        //cout<<"value: "<<*(int*)value<<endl;
         								break;
         							}
         							case TypeReal: {
@@ -678,6 +679,7 @@ class Filter : public Iterator {
         								memset(value, 0, sizeof(float));
         								memcpy(value, (char *)data+offset, sizeof(float));
         								offset += sizeof(float);
+                                        //cout<<"value: "<<*(int*)value<<endl;
         								break;
         							}
         							case TypeVarChar: {
@@ -740,8 +742,10 @@ class Project : public Iterator {
         RC getNextTuple(void *data) {
         		while(input->getNextTuple(buffer)!=QE_EOF){
         			// read all record into buffer, then copy the project attrs into data
-        			int allOffset = 0;
-        			int projectOffset = 0;
+                    int aNullIndicatorSize = ceil((double)allAttrs.size()/CHAR_BIT);
+                    int pNullIndicatorSize = ceil((double)projectAttrs.size()/CHAR_BIT);
+        			int allOffset = aNullIndicatorSize;
+        			int projectOffset = pNullIndicatorSize;
         			for(int i=0; i<allAttrs.size(); i++){
         				bool notFound = true;
         				for(int j=0; j<projectAttrs.size(); j++){
@@ -861,7 +865,6 @@ class INLJoin : public Iterator {
             int rightLen = 0;
             lData=malloc(PAGE_SIZE);
             memset(lData, 0, PAGE_SIZE);
-            cout<<"what's wrong?"<<endl;
             while (leftIn->getNextTuple(lData) != QE_EOF) {
                 int lNullIndicatorSize = ceil((double)leftAttrs.size()/CHAR_BIT);
                 char lNullIndicator;
@@ -874,7 +877,6 @@ class INLJoin : public Iterator {
                             lVal = malloc(sizeof(int));
                             memset(lVal, 0, sizeof(int));
                             memcpy(lVal, (char *)lData + offset, sizeof(int));
-                            cout << "lVal: " << *(float*)lVal << endl;
                         }
                         else {
                             memcpy(&leftLen, (char *)lData + offset, sizeof(int));
@@ -934,7 +936,7 @@ class INLJoin : public Iterator {
                     if(rightAttrs[i].type != TypeVarChar){
                         //cout<<"lVal: "<<*(float*)lVal<<" rVal: "<<*(float*)rVal<<endl;
                     		if(RBFM_ScanIterator::compareNum(lVal, condition.op, rVal, rightAttrs[i].type)){
-                    			JoinUtil::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
+                    			Join::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
                                  sameRecord=true;
                             free(lData);
                             free(rData);
@@ -943,7 +945,7 @@ class INLJoin : public Iterator {
                     }
                     else{
                     		if(RBFM_ScanIterator::compareVarChar(leftLen, lVal, condition.op, rightLen, rVal)){
-                            JoinUtil::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
+                            Join::combineData((char*)lData, leftAttrs, (char*)rData, rightAttrs, (char*)data);
                                  sameRecord=true;
                             free(lData);
                             free(rData);

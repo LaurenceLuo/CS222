@@ -107,7 +107,7 @@ RC BNLJoin::getNextTuple(void *data) {
         while(right->getNextTuple(rightData)==0){
             char* rightAttrValue = new char[PAGE_SIZE];
             if(this->rCondAttrIndex != -1){
-                JoinUtil::getValueAt(rightData,this->rightAttrs,this->rCondAttrIndex,rightAttrValue);
+                Join::getValueAt(rightData,this->rightAttrs,this->rCondAttrIndex,rightAttrValue);
             }else{
                 if(this->condition.rhsValue.type == TypeInt || this->condition.rhsValue.type==TypeReal){
                     memcpy(rightAttrValue,this->condition.rhsValue.data, sizeof(int));
@@ -120,8 +120,8 @@ RC BNLJoin::getNextTuple(void *data) {
             if(this->attrType!=TypeVarChar){
                 if(RBFM_ScanIterator::compareNum(currentKey.data,this->condition.op,rightAttrValue,this->attrType)){
                     char* leftData = new char[PAGE_SIZE];
-                    memcpy(leftData,(char*)this->blockData+currentPair.pos,currentPair.length);
-                    JoinUtil::combineData(leftData, this->leftAttrs, rightData, this->rightAttrs, (char*)data);
+                    memcpy(leftData,(char*)this->blockData+currentPair.offset,currentPair.length);
+                    Join::combineData(leftData, this->leftAttrs, rightData, this->rightAttrs, (char*)data);
                     delete[] leftData;
                     delete[] rightAttrValue;
                     delete[] rightData;
@@ -135,8 +135,8 @@ RC BNLJoin::getNextTuple(void *data) {
                 memcpy(&rightLen,rightAttrValue,sizeof(int));
                 if(RBFM_ScanIterator::compareVarChar(leftLen, (char*)currentKey.data+sizeof(int), condition.op, rightLen, (char*)rightAttrValue+sizeof(int))){
                     char* leftData = new char[PAGE_SIZE];
-                    memcpy(leftData,(char*)this->blockData+currentPair.pos,currentPair.length);
-                    JoinUtil::combineData(leftData, this->leftAttrs, rightData, this->rightAttrs, (char*)data);
+                    memcpy(leftData,(char*)this->blockData+currentPair.offset,currentPair.length);
+                    Join::combineData(leftData, this->leftAttrs, rightData, this->rightAttrs, (char*)data);
                     delete[] leftData;
                     delete[] rightAttrValue;
                     delete[] rightData;
@@ -182,7 +182,7 @@ RC BNLJoin::loadBlock() {
 
         memcpy((char*)blockData+offset, data, recordLength);
         void* page = malloc(PAGE_SIZE);
-        JoinUtil::getValueAt(data, this->leftAttrs, this->lCondAttrIndex, page);
+        Join::getValueAt(data, this->leftAttrs, this->lCondAttrIndex, page);
         Key* key = new Key(this->attrType, page);
         vector<Pair> container = blockMapper[*key];
         Pair pair(offset,recordLength);

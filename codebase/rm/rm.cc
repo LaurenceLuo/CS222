@@ -322,7 +322,7 @@ RC RelationManager::deleteTable(const string &tableName)
 		tablePage = new char[PAGE_SIZE];
 		memset(tablePage, 0, PAGE_SIZE);
 		if(tableFileHandle.readPage(pageNum,tablePage)!=0){
-			cout<<"readPage from getAttributes fail!"<<endl;
+			//cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
 		}
 		offset = 0;
@@ -478,8 +478,8 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 		tablePage = new char[PAGE_SIZE];
 		memset(tablePage, 0, PAGE_SIZE);
 		if(tableFileHandle.readPage(pageNum,tablePage)!=0){
-			cout << "pageNum: " << pageNum << endl;
-			cout<<"readPage from getAttributes fail!"<<endl;
+			//cout << "pageNum: " << pageNum << endl;
+			//cout<<"readPage from getAttributes fail!"<<endl;
 			return -1;
 		}
 		offset = 0;
@@ -599,7 +599,7 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 	vector<Attribute> recordDescriptor;
 	rc = rbf_manager->openFile(tableName, fileHandle);
 	if(rc){
-		cout << "openFile in insertTuple in Table: " << tableName << " failed!" << endl;
+		//cout << "openFile in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
 	getAttributes(tableName, recordDescriptor);
@@ -611,12 +611,12 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     */
 	rc = rbf_manager->insertRecord(fileHandle, recordDescriptor, data, rid);
 	if(rc){
-		cout << "insertRecord in insertTuple in Table: " << tableName << " failed!" << endl;
+		//cout << "insertRecord in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
 	rc = rbf_manager->closeFile(fileHandle);
 	if(rc){
-		cout << "closeFile in insertTuple in Table: " << tableName << " failed!" << endl;
+		//cout << "closeFile in insertTuple in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     
@@ -802,7 +802,7 @@ RC RelationManager::scan(const string &tableName,
 	vector<Attribute> recordDescriptor;
 	rc = rbf_manager->openFile(tableName, fileHandle);
 	if(rc){
-		cout << "openFile in scan in Table: " << tableName << " failed!" << endl;
+		//cout << "openFile in scan in Table: " << tableName << " failed!" << endl;
 		return -1;
 	}
     
