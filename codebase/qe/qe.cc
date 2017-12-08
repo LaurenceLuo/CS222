@@ -145,7 +145,7 @@ RC BNLJoin::getNextTuple(void *data) {
             }
             delete[] rightAttrValue;
         }
-        delete[] rightData;
+        //delete[] rightData;
 
         TableScan* right= new TableScan(this->right->rm, this->right->tableName);
         delete this->right;

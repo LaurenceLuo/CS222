@@ -953,7 +953,7 @@ class INLJoin : public Iterator {
                     		}
                     }
                 }
-                free(rData);
+                //free(rData);
                 IndexScan* innerTmp = new IndexScan(rightIn->rm,rightIn->tableName,rightIn->attrName);
                 //delete this->rightIn;
                 rightIn = innerTmp;
