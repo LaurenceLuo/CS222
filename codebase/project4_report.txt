@@ -17,7 +17,7 @@ Columns(table-id:int, column-name:varchar(50), column-type:int, column-length:in
 
 3. Block Nested Loop Join (If you have implemented this feature)
 - Describe how your block nested loop join works (especially, how you manage the given buffers.)
-
+We use std::map to manage the given buffers. Each record inside the map is associated with its offset and length. Given the buffer size, firstly we load the left table to fill the buffer and build the map for the buffer. Then we do map compare of the record from the right table one by one with records in the map by given attribute. If matched, combine the two records into the output and erase the record from the map and start from the beginning of the right table again, until the buffer is empty, then reload.
 
 4. Index Nested Loop Join (If you have implemented this feature)
 - Describe how your grace hash join works.
