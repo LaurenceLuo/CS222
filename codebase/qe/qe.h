@@ -40,7 +40,9 @@ public:
     }
 
     bool operator==(const Pair &p) const {
-        return this->offset == p.offset && this->length == p.length;
+        if(this->offset == p.offset && this->length == p.length)
+            return true;
+        else return false;
     }
     static void combineData(char* leftData, vector<Attribute> &leftAttrs, char* rightData, vector<Attribute> &rightAttrs, char* combinedData){
         int totalSize = leftAttrs.size() + rightAttrs.size();
