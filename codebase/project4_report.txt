@@ -30,7 +30,7 @@ Not implemented.
 
 6. Aggregation
 - Describe how your aggregation (basic, group-based hash) works.
-We add a new class AggregateData to store the value for MIN, MAX, SUM, AVG, COUNT. For AVG, the output should be a real value. Otherwise, the output should be an integer value.
+We add a new class AggregateData to store the value for MIN, MAX, SUM, AVG, COUNT. We then iterate once and get the value we need and store into AggregateData.
 We do not implement group-by feature.
 
 7. Implementation Detail
